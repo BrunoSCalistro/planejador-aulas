@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planejador de Aulas</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #181c27;
+  --surface2: #1f2435;
+  --surface3: #262d42;
+  --border: #2e3650;
+  --border2: #3a4560;
+  --text: #e8eaf2;
+  --text-muted: #7a85a8;
+  --text-dim: #4a5278;
+  --accent: #5b8cff;
+  --accent-hover: #4a7aee;
+  --planned: #3ecf8e;
+  --unplanned: #ff6b6b;
+  --warn: #f59e0b;
+  --radius: 10px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html,body { height: 100%; }
+body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 24px; height: 56px; display: flex; align-items: center;
+  justify-content: space-between; position: sticky; top: 0; z-index: 100;
+}
+.logo { font-family: 'Lora', serif; font-size: 1.2rem; font-weight: 700; }
+.logo span { color: var(--accent); }
+.header-tabs { display: flex; gap: 2px; }
+.tab-btn {
+  padding: 6px 16px; border-radius: 8px; border: none; cursor: pointer;
+  font-family: 'Outfit', sans-serif; font-size: 0.82rem; font-weight: 500;
+  background: transparent; color: var(--text-muted); transition: all 0.15s;
+}
+.tab-btn.active { background: var(--surface3); color: var(--text); }
+.tab-btn:hover:not(.active) { color: var(--text); }
+.header-right { display: flex; gap: 8px; }
+
+.btn {
+  padding: 7px 16px; border-radius: 8px; border: none; cursor: pointer;
+  font-family: 'Outfit', sans-serif; font-size: 0.82rem; font-weight: 500;
+  transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-success { background: #1a6645; color: var(--planned); border: 1px solid #2a8a5e; }
+.btn-success:hover { background: #2a8a5e; color: white; }
+.btn-danger { background: #4a1a1a; color: var(--unplanned); border: 1px solid #8a2a2a; }
+.btn-danger:hover { background: #8a2a2a; color: white; }
+.btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border2); }
+.btn-ghost:hover { color: var(--text); border-color: var(--text-muted); }
+.btn-warn { background: rgba(245,158,11,0.15); color: var(--warn); border: 1px solid rgba(245,158,11,0.3); }
+.btn-warn:hover { background: rgba(245,158,11,0.25); }
+.btn-sm { padding: 5px 12px; font-size: 0.76rem; }
+.btn-icon { padding: 5px; border-radius: 6px; background: transparent; border: none; cursor: pointer; color: var(--text-muted); transition: all 0.15s; font-size: 0.9rem; line-height: 1; }
+.btn-icon:hover { background: var(--surface3); color: var(--text); }
+.sort-btn.active { background: var(--surface3); color: var(--accent); }
+
+.app-layout { display: grid; grid-template-columns: 250px 1fr; min-height: calc(100vh - 56px); }
+
+aside {
+  background: var(--surface); border-right: 1px solid var(--border);
+  padding: 20px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 22px;
+}
+.sidebar-label {
+  font-size: 0.67rem; font-weight: 600; letter-spacing: 1.8px; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 10px; padding: 0 4px;
+}
+.turma-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  border-radius: 8px; margin-bottom: 4px; border: 1px solid transparent; transition: background 0.12s;
+}
+.turma-item:hover { background: var(--surface2); }
+.turma-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.turma-info { flex: 1; min-width: 0; cursor: pointer; }
+.turma-info-name { font-size: 0.84rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.turma-info-disc { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.turma-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
+.turma-item:hover .turma-actions { opacity: 1; }
+
+.trim-sidebar-item {
+  padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+  margin-bottom: 5px; cursor: pointer; transition: all 0.15s;
+}
+.trim-sidebar-item:hover { border-color: var(--border2); background: var(--surface2); }
+.trim-sidebar-name { font-size: 0.82rem; font-weight: 600; }
+.trim-sidebar-dates { font-size: 0.71rem; color: var(--text-muted); margin-top: 2px; }
+
+.legend { display: flex; flex-direction: column; gap: 7px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--text-muted); }
+.legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+main { overflow-y: auto; }
+.view { display: none; padding: 24px 28px; }
+.view.active { display: block; }
+
+/* CALENDAR */
+.cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.cal-title { font-family: 'Lora', serif; font-size: 1.5rem; font-weight: 700; }
+.cal-nav-group { display: flex; gap: 6px; align-items: center; }
+.nav-btn {
+  width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border2);
+  background: var(--surface); cursor: pointer; font-size: 0.9rem;
+  display: flex; align-items: center; justify-content: center; color: var(--text); transition: all 0.15s;
+}
+.nav-btn:hover { background: var(--surface3); }
+
+.stats-row { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 14px; flex: 1; min-width: 90px;
+}
+.stat-val { font-family: 'Lora', serif; font-size: 1.4rem; font-weight: 700; line-height: 1; }
+.stat-lbl { font-size: 0.7rem; color: var(--text-muted); margin-top: 3px; }
+
+.cal-weekdays { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; margin-bottom: 3px; }
+.cal-weekday { text-align: center; font-size: 0.67rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); padding: 5px 0; }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+
+.cal-day {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  min-height: 115px; padding: 7px 6px; transition: border-color 0.15s; position: relative; overflow: hidden;
+}
+.cal-day:hover { border-color: var(--border2); }
+.cal-day.other-month { opacity: 0.22; pointer-events: none; }
+.cal-day.today { border-color: var(--accent); }
+.cal-day.in-trim { background: var(--surface2); }
+.cal-day.past { opacity: 0.7; }
+
+.day-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.day-num { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
+.today .day-num { color: var(--accent); background: rgba(91,140,255,0.15); border-radius: 4px; padding: 1px 5px; }
+.day-add-btn {
+  opacity: 0; background: none; border: none; cursor: pointer; color: var(--accent);
+  font-size: 1rem; line-height: 1; transition: opacity 0.15s; padding: 2px 3px; border-radius: 4px;
+}
+.cal-day:hover .day-add-btn { opacity: 1; }
+.day-add-btn:hover { background: rgba(91,140,255,0.15); }
+
+.turno-block { margin-bottom: 3px; }
+.turno-lbl-tiny { font-size: 0.58rem; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 2px; }
+
+.class-pill {
+  padding: 2px 6px; border-radius: 4px; font-size: 0.67rem; font-weight: 500;
+  cursor: pointer; display: flex; align-items: center; gap: 4px;
+  transition: opacity 0.15s, transform 0.1s; margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; max-width: 100%;
+}
+.class-pill:hover { opacity: 0.8; transform: translateX(1px); }
+.class-pill .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.class-pill.planned { background: rgba(62,207,142,0.12); color: #5de8b0; border: 1px solid rgba(62,207,142,0.18); }
+.class-pill.unplanned { background: rgba(255,107,107,0.1); color: #ff9b9b; border: 1px solid rgba(255,107,107,0.18); }
+.class-pill.past-unplanned { background: rgba(120,120,120,0.1); color: #888; border: 1px solid rgba(120,120,120,0.15); }
+.class-pill.exception { outline: 1px dashed rgba(245,158,11,0.4); }
+.pill-name { overflow: hidden; text-overflow: ellipsis; }
+
+/* MODAL */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 200; align-items: center; justify-content: center; padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border2); border-radius: 16px;
+  width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto;
+  box-shadow: var(--shadow); animation: mIn 0.18s ease;
+}
+@keyframes mIn { from { opacity:0; transform: translateY(8px) scale(0.98); } to { opacity:1; transform:none; } }
+.modal-header {
+  padding: 20px 22px 14px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; justify-content: space-between;
+  position: sticky; top: 0; background: var(--surface); z-index: 1;
+}
+.modal-title { font-family: 'Lora', serif; font-size: 1.1rem; font-weight: 600; }
+.modal-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+.modal-close { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.1rem; padding: 4px 6px; border-radius: 6px; transition: all 0.15s; }
+.modal-close:hover { background: var(--surface3); color: var(--text); }
+.modal-body { padding: 18px 22px; }
+.modal-footer { padding: 14px 22px 18px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--border); flex-wrap: wrap; align-items: center; }
+
+.form-group { margin-bottom: 15px; }
+.form-label { display: block; font-size: 0.76rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+.req { color: var(--unplanned); }
+.form-control {
+  width: 100%; padding: 9px 12px; border: 1.5px solid var(--border2); border-radius: 8px;
+  font-family: 'Outfit', sans-serif; font-size: 0.84rem; background: var(--bg); color: var(--text);
+  outline: none; transition: border-color 0.15s; resize: vertical;
+}
+.form-control:focus { border-color: var(--accent); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.color-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+.color-swatch {
+  width: 24px; height: 24px; border-radius: 6px; cursor: pointer;
+  border: 3px solid transparent; transition: all 0.15s;
+}
+.color-swatch.sel { border-color: white; transform: scale(1.2); }
+
+.dias-grid { display: flex; gap: 5px; flex-wrap: wrap; }
+.dia-btn {
+  padding: 5px 10px; border-radius: 7px; border: 1.5px solid var(--border2);
+  background: transparent; color: var(--text-muted); cursor: pointer;
+  font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 500; transition: all 0.15s;
+}
+.dia-btn.sel { border-color: var(--accent); color: var(--accent); background: rgba(91,140,255,0.1); }
+
+/* HORARIOS CONFIG */
+.horario-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: var(--surface2); margin-bottom: 6px; }
+.horario-dia-label { font-size: 0.8rem; font-weight: 600; min-width: 34px; }
+.turno-select { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.turno-row { display: flex; align-items: center; gap: 6px; }
+.turno-name { font-size: 0.72rem; color: var(--text-muted); min-width: 42px; }
+.periodo-pills-row { display: flex; gap: 4px; flex-wrap: wrap; }
+.pp {
+  padding: 3px 8px; border-radius: 5px; border: 1.5px solid var(--border2);
+  background: transparent; color: var(--text-dim); cursor: pointer; font-size: 0.72rem; font-weight: 500;
+  font-family: 'Outfit', sans-serif; transition: all 0.15s;
+}
+.pp.sel { background: rgba(91,140,255,0.15); color: var(--accent); border-color: var(--accent); }
+
+/* PLAN */
+.plan-block { margin-bottom: 14px; }
+.plan-block-lbl { font-size: 0.67rem; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 5px; }
+.plan-block-val { background: var(--bg); border-radius: 8px; padding: 10px 12px; font-size: 0.84rem; line-height: 1.6; }
+.bncc-code { display: inline-block; background: rgba(91,140,255,0.15); color: var(--accent); border-radius: 4px; padding: 1px 7px; font-size: 0.72rem; font-weight: 700; font-family: monospace; margin-right: 5px; }
+
+/* AULAS LIST */
+.aulas-list { display: flex; flex-direction: column; gap: 6px; }
+.aula-row {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 11px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.14s;
+}
+.aula-row:hover { border-color: var(--border2); background: var(--surface2); }
+.aula-row.past { opacity: 0.6; }
+.ar-date { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); min-width: 75px; }
+.ar-period { font-size: 0.72rem; color: var(--text-dim); min-width: 100px; }
+.ar-content { flex: 1; font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ar-content.empty { color: var(--text-dim); font-style: italic; }
+.ar-status { padding: 2px 8px; border-radius: 5px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
+.ar-status.planned { background: rgba(62,207,142,0.1); color: var(--planned); }
+.ar-status.unplanned { background: rgba(255,107,107,0.1); color: var(--unplanned); }
+.ar-exception { font-size: 0.68rem; color: var(--warn); background: rgba(245,158,11,0.1); border-radius: 4px; padding: 2px 6px; }
+
+/* TRIMESTRES VIEW */
+.trims-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 14px; }
+.trim-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.trim-card-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--border); }
+.trim-card-title { font-family: 'Lora', serif; font-size: 1rem; font-weight: 600; }
+.trim-card-dates { font-size: 0.73rem; color: var(--text-muted); margin-top: 3px; }
+.trim-card-body { padding: 12px 16px; }
+.trim-stat { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 4px; }
+.trim-stat span:last-child { color: var(--text); font-weight: 500; }
+.prog-bar { height: 5px; background: var(--surface3); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+.prog-fill { height: 100%; background: var(--planned); border-radius: 3px; transition: width 0.4s; }
+
+/* FILTER */
+.filter-row { display: flex; gap: 7px; margin-bottom: 14px; flex-wrap: wrap; }
+.fchip {
+  padding: 4px 12px; border-radius: 20px; border: 1.5px solid var(--border2);
+  background: transparent; color: var(--text-muted); cursor: pointer; font-size: 0.75rem;
+  font-family: 'Outfit', sans-serif; font-weight: 500; transition: all 0.14s;
+}
+.fchip.active { background: var(--surface3); color: var(--text); border-color: var(--border2); }
+
+/* EMPTY */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-dim); }
+.empty-state .ei { font-size: 2rem; margin-bottom: 10px; }
+.empty-state p { font-size: 0.86rem; line-height: 1.5; }
+
+/* TURMA DETAIL */
+.td-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.td-dot { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
+.td-title { font-family: 'Lora', serif; font-size: 1.35rem; font-weight: 700; }
+.td-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+
+/* GOOGLE DRIVE */
+.drive-bar {
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+  border-radius: 8px; font-size: 0.76rem; transition: all 0.2s;
+}
+.drive-bar.disconnected { background: rgba(255,107,107,0.1); color: #ff9b9b; border: 1px solid rgba(255,107,107,0.2); }
+.drive-bar.connected { background: rgba(62,207,142,0.1); color: #3ecf8e; border: 1px solid rgba(62,207,142,0.2); }
+.drive-bar.syncing { background: rgba(91,140,255,0.1); color: #7aa8ff; border: 1px solid rgba(91,140,255,0.2); }
+.drive-bar.error { background: rgba(245,158,11,0.1); color: var(--warn); border: 1px solid rgba(245,158,11,0.2); }
+.drive-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.drive-dot.off { background: #ff6b6b; }
+.drive-dot.on { background: var(--planned); }
+.drive-dot.spin { background: var(--accent); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* SETUP MODAL */
+.setup-step { display: flex; gap: 12px; margin-bottom: 16px; }
+.step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: white; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+.step-body { flex: 1; }
+.step-title { font-size: 0.88rem; font-weight: 600; margin-bottom: 4px; }
+.step-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+.step-desc a { color: var(--accent); }
+.step-desc code { background: var(--surface3); padding: 1px 5px; border-radius: 4px; font-size: 0.78rem; }
+
+.notice {
+  background: rgba(91,140,255,0.08); border: 1px solid rgba(91,140,255,0.2);
+  border-radius: 8px; padding: 10px 14px; font-size: 0.8rem; color: var(--text-muted);
+  margin-bottom: 14px; line-height: 1.5;
+}
+.notice strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">📚 Planejador de <span>Aulas</span></div>
+  <div class="header-tabs">
+    <button class="tab-btn active" onclick="setView('calendar')">Calendário</button>
+    <button class="tab-btn" onclick="setView('trimestres')">Trimestres</button>
+    <button class="tab-btn" onclick="setView('relatorio')">Relatório</button>
+  </div>
+  <div class="header-right">
+    <div class="drive-bar disconnected" id="drive-status" onclick="handleDriveClick()" style="cursor:pointer" title="Clique para configurar o Google Drive">
+      <div class="drive-dot off" id="drive-dot"></div>
+      <span id="drive-label">Google Drive</span>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="exportData()">↓ Exportar</button>
+    <button class="btn btn-primary btn-sm" onclick="openTurmaModal()">+ Nova Turma</button>
+  </div>
+</header>
+
+<div class="app-layout">
+  <aside>
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="sidebar-label" style="margin-bottom:0">Turmas</div>
+        <div style="display:flex;gap:2px">
+          <button class="btn-icon sort-btn active" id="sort-custom" onclick="setSort('custom')" title="Ordem de cadastro" style="font-size:0.7rem;padding:3px 6px">✦</button>
+          <button class="btn-icon sort-btn" id="sort-az" onclick="setSort('az')" title="A → Z (turma)" style="font-size:0.7rem;padding:3px 6px">A↓</button>
+          <button class="btn-icon sort-btn" id="sort-disc" onclick="setSort('disc')" title="A → Z (disciplina)" style="font-size:0.7rem;padding:3px 6px">D↓</button>
+        </div>
+      </div>
+      <div id="sidebar-turmas"></div>
+    </div>
+    <div>
+      <div class="sidebar-label">Trimestres</div>
+      <div id="sidebar-trims"></div>
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:4px" onclick="openTrimModal()">+ Trimestre</button>
+    </div>
+    <div style="margin-top:auto">
+      <div class="sidebar-label">Legenda</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--planned)"></div>Aula planejada</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--unplanned)"></div>Sem planejamento</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#888"></div>Passada sem plano</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--warn);border-radius:2px"></div>Horário alterado</div>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <!-- CALENDAR -->
+    <div class="view active" id="view-calendar">
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-val" id="s-total" style="color:var(--accent)">0</div><div class="stat-lbl">Aulas no mês</div></div>
+        <div class="stat-card"><div class="stat-val" id="s-plan" style="color:var(--planned)">0</div><div class="stat-lbl">Planejadas</div></div>
+        <div class="stat-card"><div class="stat-val" id="s-noplan" style="color:var(--unplanned)">0</div><div class="stat-lbl">Sem plano</div></div>
+        <div class="stat-card"><div class="stat-val" id="s-pct" style="color:var(--warn)">—</div><div class="stat-lbl">% Planejado</div></div>
+      </div>
+      <div class="cal-nav">
+        <div class="cal-title" id="cal-title"></div>
+        <div class="cal-nav-group">
+          <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+          <button class="btn btn-ghost btn-sm" onclick="goToday()">Hoje</button>
+          <button class="nav-btn" onclick="changeMonth(1)">›</button>
+        </div>
+      </div>
+      <div class="cal-weekdays">
+        <div class="cal-weekday">Dom</div><div class="cal-weekday">Seg</div>
+        <div class="cal-weekday">Ter</div><div class="cal-weekday">Qua</div>
+        <div class="cal-weekday">Qui</div><div class="cal-weekday">Sex</div>
+        <div class="cal-weekday">Sáb</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+
+    <!-- TRIMESTRES -->
+    <div class="view" id="view-trimestres">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div style="font-family:'Lora',serif;font-size:1.4rem;font-weight:700">Trimestres</div>
+        <button class="btn btn-primary btn-sm" onclick="openTrimModal()">+ Novo Trimestre</button>
+      </div>
+      <div class="trims-grid" id="trims-grid"></div>
+    </div>
+
+    <!-- RELATÓRIO -->
+    <div class="view" id="view-relatorio">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div style="font-family:'Lora',serif;font-size:1.4rem;font-weight:700">Relatório</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select class="form-control" id="rel-turma" style="width:auto" onchange="renderRelatorio()">
+            <option value="">Todas as turmas</option>
+          </select>
+          <select class="form-control" id="rel-trim" style="width:auto" onchange="renderRelatorio()">
+            <option value="">Todos os trimestres</option>
+          </select>
+        </div>
+      </div>
+      <div id="relatorio-content"></div>
+    </div>
+
+    <!-- TURMA DETAIL -->
+    <div class="view" id="view-turma-detail">
+      <button class="btn btn-ghost btn-sm" onclick="setView('calendar')" style="margin-bottom:14px">← Voltar</button>
+      <div class="td-header">
+        <div class="td-dot" id="td-dot"></div>
+        <div><div class="td-title" id="td-title"></div><div class="td-sub" id="td-sub"></div></div>
+      </div>
+      <div class="filter-row">
+        <button class="fchip active" onclick="setDetailFilter('all',this)">Todas</button>
+        <button class="fchip" onclick="setDetailFilter('upcoming',this)">Futuras</button>
+        <button class="fchip" onclick="setDetailFilter('unplanned',this)">Sem plano</button>
+        <button class="fchip" onclick="setDetailFilter('planned',this)">Planejadas</button>
+      </div>
+      <div id="td-list"></div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL: TURMA -->
+<div class="modal-overlay" id="modal-turma">
+  <div class="modal">
+    <div class="modal-header">
+      <div><div class="modal-title" id="mt-title">Nova Turma</div><div class="modal-subtitle">Configure os dias e horários de aula</div></div>
+      <button class="modal-close" onclick="closeModal('modal-turma')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Turma <span class="req">*</span></label>
+          <input class="form-control" id="t-nome" placeholder="Ex: 9º A">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Disciplina <span class="req">*</span></label>
+          <input class="form-control" id="t-disc" placeholder="Ex: Matemática">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cor</label>
+        <div class="color-grid" id="color-grid"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dias com aula nessa turma</label>
+        <div class="dias-grid" id="dias-grid"></div>
+      </div>
+      <div class="form-group" id="horarios-section" style="display:none">
+        <label class="form-label">Horários por dia <span style="font-weight:400;color:var(--text-dim)">(selecione turno e período)</span></label>
+        <div id="horarios-config"></div>
+      </div>
+      <div class="notice" id="turma-notice" style="display:none">
+        <strong>Atenção:</strong> alterações nos horários afetarão apenas as aulas a partir de hoje. Aulas passadas não serão alteradas.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div id="mt-del"></div>
+      <button class="btn btn-ghost" onclick="closeModal('modal-turma')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTurma()">Salvar Turma</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PLANO -->
+<div class="modal-overlay" id="modal-plano">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="mp-title"></div>
+        <div class="modal-subtitle" id="mp-sub"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-plano')">✕</button>
+    </div>
+    <div class="modal-body" id="mp-body"></div>
+    <div class="modal-footer" id="mp-footer"></div>
+  </div>
+</div>
+
+<!-- MODAL: EDITAR EXCEÇÃO (dia/horário alterado) -->
+<div class="modal-overlay" id="modal-excecao">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Editar Dia / Horário</div>
+        <div class="modal-subtitle" id="me-sub"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-excecao')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="notice">Isso cria uma <strong>exceção</strong> para esta aula específica. O restante da grade regular não é alterado.</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nova data</label>
+          <input class="form-control" type="date" id="me-date">
+        </div>
+        <div class="form-group"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Turno e Período</label>
+        <div id="me-periodos"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-warn btn-sm" id="me-clear-btn" onclick="clearExcecao()" style="margin-right:auto;display:none">↩ Restaurar original</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-excecao')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveExcecao()">Salvar Exceção</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADD AULA EXTRA -->
+<div class="modal-overlay" id="modal-extra">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Adicionar Aula Extra</div>
+        <div class="modal-subtitle" id="mex-sub"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-extra')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Turma <span class="req">*</span></label>
+        <div id="mex-turmas" style="display:flex;flex-direction:column;gap:5px"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Turno e Período <span class="req">*</span></label>
+        <div id="mex-periodos"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-extra')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveExtraAula()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: GOOGLE DRIVE SETUP -->
+<div class="modal-overlay" id="modal-drive-setup">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">⚙️ Configurar Google Drive</div>
+        <div class="modal-subtitle">Seus dados ficam salvos na sua conta Google, com segurança</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-drive-setup')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="notice" style="margin-bottom:18px">
+        Você precisará criar um projeto gratuito no Google Cloud Console e colar o <strong>Client ID</strong> abaixo. Siga os passos:
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Acesse o Google Cloud Console</div>
+          <div class="step-desc">Abra em outra aba: <a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a> e faça login com sua conta Google.</div>
+        </div>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Crie um projeto</div>
+          <div class="step-desc">Clique em <strong>"Novo Projeto"</strong>, dê um nome (ex: <code>planejador-aulas</code>) e clique em Criar.</div>
+        </div>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Ative a Google Drive API</div>
+          <div class="step-desc">No menu lateral, vá em <strong>APIs e Serviços → Biblioteca</strong>. Busque por <code>Google Drive API</code> e clique em <strong>Ativar</strong>.</div>
+        </div>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Configure a Tela de Consentimento OAuth</div>
+          <div class="step-desc">Vá em <strong>APIs e Serviços → Tela de consentimento OAuth</strong>. Escolha <strong>Externo</strong>, preencha o nome do app (ex: Planejador de Aulas) e seu e-mail. Salve. Na aba <strong>Escopos</strong>, adicione <code>../auth/drive.file</code>. Na aba <strong>Usuários de teste</strong>, adicione seu próprio e-mail.</div>
+        </div>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">Crie as Credenciais OAuth</div>
+          <div class="step-desc">Vá em <strong>APIs e Serviços → Credenciais → Criar Credenciais → ID do cliente OAuth</strong>. Escolha <strong>Aplicativo da Web</strong>. Em "Origens JavaScript autorizadas" adicione <code>null</code> (para arquivo local). Clique em Criar e copie o <strong>ID do cliente</strong>.</div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:4px">
+        <label class="form-label">Cole aqui o seu Client ID <span class="req">*</span></label>
+        <input class="form-control" id="drive-client-id" placeholder="xxxxx.apps.googleusercontent.com" value="">
+        <div style="font-size:0.75rem;color:var(--text-dim);margin-top:5px">Será salvo localmente apenas neste navegador.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-drive-setup')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveDriveConfig()">Salvar e Conectar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: IMPORTAR DO DRIVE -->
+<div class="modal-overlay" id="modal-drive-import">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div><div class="modal-title">📂 Dados encontrados no Drive</div></div>
+      <button class="modal-close" onclick="closeModal('modal-drive-import')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.88rem;line-height:1.6;color:var(--text-muted)">
+        Encontrei um arquivo de planejamento salvo no seu Google Drive. O que deseja fazer?
+      </p>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-success" onclick="importFromDrive()" style="justify-content:center">⬇ Carregar dados do Drive</button>
+        <button class="btn btn-ghost" onclick="keepLocalData()" style="justify-content:center">Manter dados locais (e salvar no Drive)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-trim">
+  <div class="modal">
+    <div class="modal-header">
+      <div><div class="modal-title" id="mtr-title">Novo Trimestre</div></div>
+      <button class="modal-close" onclick="closeModal('modal-trim')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Nome <span class="req">*</span></label>
+        <input class="form-control" id="tr-nome" placeholder="Ex: 1º Trimestre 2025">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Início <span class="req">*</span></label>
+          <input class="form-control" type="date" id="tr-inicio">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Término <span class="req">*</span></label>
+          <input class="form-control" type="date" id="tr-fim">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div id="mtr-del"></div>
+      <button class="btn btn-ghost" onclick="closeModal('modal-trim')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTrimestre()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// MODELO DE DADOS
+// ============================================================
+// turmas[]: { id, nome, disciplina, color, horarios: { [diaSemana]: [{turno,periodo}] } }
+//   - diaSemana: 0=Dom ... 6=Sáb
+//   - horarios define quais slots regulares a turma tem
+//
+// exceptions[]: { turmaId, origDate, origTurno, origPeriodo, newDate, newTurno, newPeriodo }
+//   - registra quando uma aula específica foi movida de data/horário
+//   - origDate/origTurno/origPeriodo identificam univocamente a aula gerada
+//
+// extras[]: { id, turmaId, date, turno, periodo, plano }
+//   - aulas adicionadas manualmente que não fazem parte da grade regular
+//
+// planos: { [aulaKey]: { bncc, bnccDesc, conteudo, dinamica, avaliacao, obs } }
+//   - aulaKey = `${turmaId}|${date}|${turno}|${periodo}`
+//
+// trimestres[]: { id, nome, inicio, fim }   (YYYY-MM-DD)
+
+const COLORS = [
+  '#5b8cff','#3ecf8e','#ff6b6b','#f59e0b','#a78bfa',
+  '#fb7185','#34d399','#60a5fa','#f97316','#e879f9',
+  '#22d3ee','#a3e635','#fbbf24','#f43f5e','#8b5cf6',
+  '#10b981','#3b82f6','#ef4444','#d97706','#7c3aed',
+  '#06b6d4','#84cc16','#ec4899','#14b8a6','#6366f1',
+  '#ff5e5e','#ffb347','#b8ff47','#47ffd4','#d447ff',
+];
+const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const TURNOS = [
+  { id:'manha', label:'Manhã' },
+  { id:'tarde', label:'Tarde' },
+  { id:'noite', label:'Noite' },
+];
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const TODAY = (() => { const d=new Date(); d.setHours(0,0,0,0); return d; })();
+const TODAY_KEY = dkFromDate(TODAY);
+
+let S = {
+  turmas: [],
+  exceptions: [],
+  extras: [],
+  planos: {},
+  trimestres: [],
+  currentYear: TODAY.getFullYear(),
+  currentMonth: TODAY.getMonth(),
+};
+
+try { const sv=localStorage.getItem('planner_v3'); if(sv) S={...S,...JSON.parse(sv)}; } catch(e){}
+function save() { try { localStorage.setItem('planner_v3', JSON.stringify(S)); } catch(e){} }
+
+function uid() { return '_'+Math.random().toString(36).slice(2,9); }
+function dkFromDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function dateFromDk(dk) { const [y,m,d]=dk.split('-'); return new Date(+y,+m-1,+d); }
+function fmtDate(dk) { if(!dk)return''; const [y,m,d]=dk.split('-'); return `${d}/${m}/${y}`; }
+function isPast(dk) { return dk < TODAY_KEY; }
+function isToday(dk) { return dk === TODAY_KEY; }
+function getTurma(id) { return S.turmas.find(t=>t.id===id); }
+function turnoLabel(turno, periodos) {
+  const t=TURNOS.find(t=>t.id===turno);
+  if(!t) return '';
+  if(!periodos||!periodos.length) return t.label;
+  const s=[...periodos].sort((a,b)=>a-b);
+  if(s.length===1) return `${t.label} · ${s[0]}º período`;
+  return `${t.label} · ${s[0]}º–${s[s.length-1]}º período`;
+}
+// Key groups all periods of same turno+day+turma into ONE aula
+function aulaKey(turmaId,date,turno) { return `${turmaId}|${date}|${turno}`; }
+function parseKey(key) { const [turmaId,date,turno]=key.split('|'); return {turmaId,date,turno}; }
+
+// ============================================================
+// GERAÇÃO DAS AULAS
+// ============================================================
+// Aulas do mesmo turno, turma e dia são agrupadas em UMA entrada.
+// key = turmaId|date|turno  (sem período — períodos são metadado do bloco)
+function getAulasForRange(startDk, endDk) {
+  const result = [];
+  // Use a map to group by key and avoid duplicates
+  const seen = new Set();
+
+  // 1. AULAS REGULARES
+  for (const turma of S.turmas) {
+    if (!turma.horarios) continue;
+    const start = dateFromDk(startDk);
+    const end = dateFromDk(endDk);
+    let cur = new Date(start);
+    while (cur <= end) {
+      const dow = cur.getDay();
+      const dk = dkFromDate(cur);
+      const slots = turma.horarios[dow] || [];
+
+      // Group slots by turno for this day
+      const byTurno = {};
+      for (const slot of slots) {
+        if (!byTurno[slot.turno]) byTurno[slot.turno] = [];
+        byTurno[slot.turno].push(slot.periodo);
+      }
+
+      for (const [turno, periodos] of Object.entries(byTurno)) {
+        periodos.sort((a,b)=>a-b);
+
+        // Check if this turno block has an exception
+        // Exception is stored per turno block (not per individual period)
+        const exc = S.exceptions.find(e =>
+          e.turmaId===turma.id && e.origDate===dk && e.origTurno===turno
+        );
+
+        let finalDate=dk, finalTurno=turno, isExc=false;
+        if(exc) {
+          finalDate=exc.newDate; finalTurno=exc.newTurno; isExc=true;
+          if(finalDate<startDk||finalDate>endDk) { cur.setDate(cur.getDate()+1); continue; }
+        }
+
+        const key = aulaKey(turma.id, finalDate, finalTurno);
+        if(seen.has(key)) { cur.setDate(cur.getDate()+1); continue; }
+        seen.add(key);
+
+        result.push({
+          turmaId: turma.id,
+          date: finalDate,
+          turno: finalTurno,
+          periodos,  // array of periods e.g. [1,2]
+          origDate: dk,
+          origTurno: turno,
+          isException: isExc,
+          isExtra: false,
+          plano: S.planos[key] || null,
+          key,
+        });
+      }
+      cur.setDate(cur.getDate()+1);
+    }
+  }
+
+  // 2. AULAS EXTRAS
+  for (const ex of S.extras) {
+    if(ex.date >= startDk && ex.date <= endDk) {
+      const key = aulaKey(ex.turmaId, ex.date, ex.turno);
+      if(!seen.has(key)) {
+        seen.add(key);
+        result.push({
+          turmaId: ex.turmaId,
+          date: ex.date,
+          turno: ex.turno,
+          periodos: ex.periodos||[],
+          origDate: ex.date,
+          origTurno: ex.turno,
+          isException: false,
+          isExtra: true,
+          extraId: ex.id,
+          plano: S.planos[key] || null,
+          key,
+        });
+      }
+    }
+  }
+
+  return result;
+}
+
+// ============================================================
+// VIEW SWITCHING
+// ============================================================
+let currentView = 'calendar';
+function setView(v) {
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v)?.classList.add('active');
+  currentView = v;
+  const map={calendar:0,trimestres:1,relatorio:2};
+  if(map[v]!==undefined) document.querySelectorAll('.tab-btn')[map[v]].classList.add('active');
+  if(v==='trimestres') renderTrimestresView();
+  if(v==='relatorio') renderRelatorio();
+}
+
+// ============================================================
+// MODALS
+// ============================================================
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e=>{ if(e.target===el) el.classList.remove('open'); });
+});
+
+// ============================================================
+// SIDEBAR
+// ============================================================
+let currentSort = 'custom';
+
+function setSort(mode) {
+  currentSort = mode;
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sort-'+mode)?.classList.add('active');
+  renderSidebar();
+}
+
+function getSortedTurmas() {
+  const arr = [...S.turmas];
+  if(currentSort==='az') arr.sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR',{numeric:true}));
+  else if(currentSort==='disc') arr.sort((a,b)=>a.disciplina.localeCompare(b.disciplina,'pt-BR')||a.nome.localeCompare(b.nome,'pt-BR',{numeric:true}));
+  return arr;
+}
+
+function renderSidebar() {
+  const tlist = document.getElementById('sidebar-turmas');
+  const turmas = getSortedTurmas();
+  tlist.innerHTML = turmas.length ? turmas.map(t=>`
+    <div class="turma-item">
+      <div class="turma-dot" style="background:${t.color}"></div>
+      <div class="turma-info" onclick="openTurmaDetail('${t.id}')">
+        <div class="turma-info-name">${t.nome}</div>
+        <div class="turma-info-disc">${t.disciplina}</div>
+      </div>
+      <div class="turma-actions">
+        <button class="btn-icon" onclick="openTurmaModal('${t.id}')" title="Editar">✏️</button>
+        <button class="btn-icon" onclick="removeTurma('${t.id}')" title="Remover">🗑</button>
+      </div>
+    </div>
+  `).join('') : '<div style="font-size:0.78rem;color:var(--text-dim);padding:4px">Nenhuma turma</div>';
+
+  const trlist = document.getElementById('sidebar-trims');
+  trlist.innerHTML = S.trimestres.map(tr=>`
+    <div class="trim-sidebar-item" onclick="openTrimModal('${tr.id}')">
+      <div class="trim-sidebar-name">${tr.nome}</div>
+      <div class="trim-sidebar-dates">${fmtDate(tr.inicio)} → ${fmtDate(tr.fim)}</div>
+    </div>
+  `).join('') || '<div style="font-size:0.78rem;color:var(--text-dim);padding:4px">Nenhum trimestre</div>';
+
+  // update relatorio selects
+  const rt=document.getElementById('rel-turma'), rtr=document.getElementById('rel-trim');
+  if(rt){
+    const cv=rt.value;
+    rt.innerHTML='<option value="">Todas as turmas</option>'+S.turmas.map(t=>`<option value="${t.id}">${t.nome} - ${t.disciplina}</option>`).join('');
+    rt.value=cv;
+  }
+  if(rtr){
+    const cv=rtr.value;
+    rtr.innerHTML='<option value="">Todos os trimestres</option>'+S.trimestres.map(tr=>`<option value="${tr.id}">${tr.nome}</option>`).join('');
+    rtr.value=cv;
+  }
+}
+
+// ============================================================
+// CALENDAR
+// ============================================================
+function renderCalendar() {
+  const {currentYear:y, currentMonth:m} = S;
+  document.getElementById('cal-title').textContent = `${MESES[m]} ${y}`;
+
+  const firstDay = new Date(y,m,1).getDay();
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const prevDays = new Date(y,m,0).getDate();
+  const monthStart = dateKey(y,m,1);
+  const monthEnd = dateKey(y,m,daysInMonth);
+
+  // Get all aulas for this month
+  const aulas = getAulasForRange(monthStart, monthEnd);
+
+  // Group by date
+  const byDate = {};
+  for(const a of aulas) {
+    if(!byDate[a.date]) byDate[a.date]=[];
+    byDate[a.date].push(a);
+  }
+
+  const inTrim = (dk) => S.trimestres.some(tr=>dk>=tr.inicio&&dk<=tr.fim);
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML='';
+
+  let total=0, planned=0;
+
+  // prev month cells
+  for(let i=firstDay-1;i>=0;i--) {
+    const c=document.createElement('div');
+    c.className='cal-day other-month';
+    c.innerHTML=`<div class="day-header"><div class="day-num">${prevDays-i}</div></div>`;
+    grid.appendChild(c);
+  }
+
+  for(let day=1;day<=daysInMonth;day++) {
+    const dk = dateKey(y,m,day);
+    const past = isPast(dk);
+    const today = isToday(dk);
+    const trim = inTrim(dk);
+    const dayAulas = byDate[dk] || [];
+
+    // Sort aulas: by turno order then by periodo
+    const turnoOrder = {manha:0,tarde:1,noite:2};
+    dayAulas.sort((a,b) => (turnoOrder[a.turno]||0)-(turnoOrder[b.turno]||0) || (a.periodo||0)-(b.periodo||0));
+
+    const cell = document.createElement('div');
+    cell.className = 'cal-day' + (today?' today':'') + (trim?' in-trim':'') + (past&&!today?' past':'');
+
+    // Group by turno for display
+    const byTurno = {};
+    for(const a of dayAulas) {
+      if(!byTurno[a.turno]) byTurno[a.turno]=[];
+      byTurno[a.turno].push(a);
+      if(!past||a.plano) total++;
+      if(a.plano?.conteudo) planned++;
+    }
+    // Count all for stats
+    total = 0; planned = 0; // recalc below
+
+    let turnosHTML = '';
+    for(const turno of TURNOS) {
+      const arr = byTurno[turno.id];
+      if(!arr?.length) continue;
+      let pillsHTML = '';
+      for(const a of arr) {
+        const turma = getTurma(a.turmaId);
+        if(!turma) continue;
+        const isPlanned = !!a.plano?.conteudo;
+        let cls = isPlanned ? 'planned' : (past ? 'past-unplanned' : 'unplanned');
+        if(a.isException) cls += ' exception';
+        const perLabel = a.periodos?.length>1 ? `${a.periodos[0]}°-${a.periodos[a.periodos.length-1]}°` : `${(a.periodos||[])[0]||''}°`;
+        pillsHTML += `<div class="class-pill ${cls}"
+          onclick="openPlano('${a.key}')"
+          ondblclick="openExcecaoModal('${a.key}',event)"
+          title="${turma.nome} — ${turma.disciplina}&#10;${turnoLabel(a.turno,a.periodos)}${a.isException?'&#10;⚠ Horário alterado':''}${a.isExtra?'&#10;★ Aula extra':''}&#10;Duplo clique para editar dia/horário">
+          <div class="dot"></div>
+          <span class="pill-name">${perLabel} ${turma.nome}</span>
+        </div>`;
+      }
+      turnosHTML += `<div class="turno-block">
+        <div class="turno-lbl-tiny">${turno.label}</div>
+        ${pillsHTML}
+      </div>`;
+    }
+
+    cell.innerHTML = `
+      <div class="day-header">
+        <div class="day-num">${day}</div>
+        <button class="day-add-btn" onclick="openExtraModal('${dk}')" title="Adicionar aula extra">+</button>
+      </div>
+      ${turnosHTML}
+    `;
+    grid.appendChild(cell);
+  }
+
+  // fill
+  const total2 = firstDay+daysInMonth;
+  const rem = total2%7===0?0:7-total2%7;
+  for(let i=1;i<=rem;i++) {
+    const c=document.createElement('div'); c.className='cal-day other-month';
+    c.innerHTML=`<div class="day-header"><div class="day-num">${i}</div></div>`;
+    grid.appendChild(c);
+  }
+
+  // Stats
+  const monthAulas = aulas;
+  const mt = monthAulas.length;
+  const mp = monthAulas.filter(a=>a.plano?.conteudo).length;
+  document.getElementById('s-total').textContent=mt;
+  document.getElementById('s-plan').textContent=mp;
+  document.getElementById('s-noplan').textContent=mt-mp;
+  document.getElementById('s-pct').textContent=mt>0?Math.round(mp/mt*100)+'%':'—';
+}
+
+function dateKey(y,m,d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function changeMonth(d) { S.currentMonth+=d; if(S.currentMonth>11){S.currentMonth=0;S.currentYear++;} if(S.currentMonth<0){S.currentMonth=11;S.currentYear--;} render(); }
+function goToday() { S.currentYear=TODAY.getFullYear(); S.currentMonth=TODAY.getMonth(); render(); }
+
+// ============================================================
+// TURMA MODAL
+// ============================================================
+let editTurmaId=null, selColor=COLORS[0], selDias=[], horariosDraft={};
+
+function openTurmaModal(id=null) {
+  editTurmaId=id;
+  const t=id?getTurma(id):null;
+  document.getElementById('mt-title').textContent=t?'Editar Turma':'Nova Turma';
+  document.getElementById('t-nome').value=t?.nome||'';
+  document.getElementById('t-disc').value=t?.disciplina||'';
+  selColor=t?.color||COLORS[Math.floor(Math.random()*COLORS.length)];
+  selDias=t?Object.keys(t.horarios||{}).map(Number):[];
+  horariosDraft=t?JSON.parse(JSON.stringify(t.horarios||{})):{};
+  document.getElementById('mt-del').innerHTML=t?`<button class="btn btn-danger btn-sm" onclick="removeTurma('${id}');closeModal('modal-turma')">🗑 Remover turma</button>`:'';
+  document.getElementById('turma-notice').style.display=t?'block':'none';
+  buildColorGrid(); buildDiasGrid(); buildHorariosConfig();
+  openModal('modal-turma');
+}
+
+function buildColorGrid() {
+  document.getElementById('color-grid').innerHTML=COLORS.map(c=>`
+    <div class="color-swatch ${c===selColor?'sel':''}" style="background:${c}" onclick="pickColor('${c}')"></div>
+  `).join('');
+}
+function pickColor(c) { selColor=c; buildColorGrid(); }
+
+function buildDiasGrid() {
+  document.getElementById('dias-grid').innerHTML=DIAS.map((d,i)=>`
+    <button class="dia-btn ${selDias.includes(i)?'sel':''}" onclick="toggleDia(${i})"
+      style="${selDias.includes(i)?`border-color:${selColor};color:${selColor};background:${selColor}18`:''}">${d}</button>
+  `).join('');
+}
+function toggleDia(i) {
+  if(selDias.includes(i)) { selDias=selDias.filter(d=>d!==i); delete horariosDraft[i]; }
+  else { selDias.push(i); if(!horariosDraft[i]) horariosDraft[i]=[]; }
+  buildDiasGrid(); buildHorariosConfig();
+}
+
+function buildHorariosConfig() {
+  const sec=document.getElementById('horarios-section');
+  const cont=document.getElementById('horarios-config');
+  if(!selDias.length){ sec.style.display='none'; return; }
+  sec.style.display='block';
+  const sorted=[...selDias].sort((a,b)=>a-b);
+  cont.innerHTML=sorted.map(dow=>`
+    <div class="horario-row">
+      <div class="horario-dia-label">${DIAS[dow]}</div>
+      <div class="turno-select">
+        ${TURNOS.map(turno=>`
+          <div class="turno-row">
+            <div class="turno-name">${turno.label}</div>
+            <div class="periodo-pills-row" id="pp-${dow}-${turno.id}">
+              ${[1,2,3,4,5,6].map(p=>{
+                const sel=(horariosDraft[dow]||[]).some(s=>s.turno===turno.id&&s.periodo===p);
+                return `<button class="pp ${sel?'sel':''}" onclick="togglePeriodo(${dow},'${turno.id}',${p})">${p}º</button>`;
+              }).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function togglePeriodo(dow, turnoId, periodo) {
+  if(!horariosDraft[dow]) horariosDraft[dow]=[];
+  const idx=horariosDraft[dow].findIndex(s=>s.turno===turnoId&&s.periodo===periodo);
+  if(idx>=0) horariosDraft[dow].splice(idx,1);
+  else horariosDraft[dow].push({turno:turnoId,periodo});
+  // Re-render just this pill row
+  const row=document.getElementById(`pp-${dow}-${turnoId}`);
+  if(row) row.querySelectorAll('.pp').forEach((btn,i)=>{
+    const p=i+1;
+    const s=(horariosDraft[dow]||[]).some(x=>x.turno===turnoId&&x.periodo===p);
+    btn.classList.toggle('sel',s);
+  });
+}
+
+function saveTurma() {
+  const nome=document.getElementById('t-nome').value.trim();
+  const disc=document.getElementById('t-disc').value.trim();
+  if(!nome||!disc){alert('Preencha nome e disciplina.');return;}
+
+  if(editTurmaId) {
+    const t=getTurma(editTurmaId);
+    const oldHorarios=JSON.parse(JSON.stringify(t.horarios||{}));
+    t.nome=nome; t.disciplina=disc; t.color=selColor;
+    t.horarios=JSON.parse(JSON.stringify(horariosDraft));
+    // Remove future exceptions that no longer apply (optional cleanup)
+    // Keep past planos as-is
+  } else {
+    const id=uid();
+    S.turmas.push({id,nome,disciplina:disc,color:selColor,horarios:JSON.parse(JSON.stringify(horariosDraft))});
+  }
+  save(); closeModal('modal-turma'); render();
+}
+
+function removeTurma(id) {
+  if(!confirm('Remover turma? Os planejamentos associados serão mantidos.')) return;
+  S.turmas=S.turmas.filter(t=>t.id!==id);
+  S.exceptions=S.exceptions.filter(e=>e.turmaId!==id);
+  S.extras=S.extras.filter(e=>e.turmaId!==id);
+  save(); render();
+}
+
+// ============================================================
+// PLANO DE AULA
+// ============================================================
+let currentPlanoKey=null;
+// parseKey is already defined above near aulaKey
+
+function openPlano(key) {
+  currentPlanoKey=key;
+  const {turmaId,date,turno}=parseKey(key);
+  const turma=getTurma(turmaId);
+  const plano=S.planos[key]||null;
+  const past=isPast(date);
+  // Find periodos for this aula from the generated list
+  const aulas=getAulasForRange(date,date);
+  const aula=aulas.find(a=>a.key===key);
+  const periodos=aula?.periodos||[];
+  document.getElementById('mp-title').textContent=`${turma?.nome} — ${turma?.disciplina}`;
+  document.getElementById('mp-sub').textContent=`${fmtDate(date)} · ${turnoLabel(turno,periodos)}${past?' (passada)':''}`;
+  if(plano?.conteudo) renderViewPlano(plano,past);
+  else renderEditPlano(plano);
+  openModal('modal-plano');
+}
+
+function renderViewPlano(p,past) {
+  document.getElementById('mp-body').innerHTML=`
+    <div class="plan-block"><div class="plan-block-lbl">Habilidade BNCC</div>
+      <div class="plan-block-val">${p.bncc?`<span class="bncc-code">${p.bncc}</span>`:''} ${p.bnccDesc||'<span style="color:var(--text-dim)">—</span>'}</div>
+    </div>
+    <div class="plan-block"><div class="plan-block-lbl">Conteúdo</div>
+      <div class="plan-block-val">${p.conteudo}</div>
+    </div>
+    <div class="plan-block"><div class="plan-block-lbl">Dinâmica / Metodologia</div>
+      <div class="plan-block-val">${p.dinamica||'<span style="color:var(--text-dim)">—</span>'}</div>
+    </div>
+    <div class="plan-block"><div class="plan-block-lbl">Avaliação / Instrumentos</div>
+      <div class="plan-block-val">${p.avaliacao||'<span style="color:var(--text-dim)">—</span>'}</div>
+    </div>
+    ${p.obs?`<div class="plan-block"><div class="plan-block-lbl">Observações</div><div class="plan-block-val">${p.obs}</div></div>`:''}
+  `;
+  document.getElementById('mp-footer').innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal('modal-plano')">Fechar</button>
+    <button class="btn btn-success" onclick="renderEditPlano(null,true)">✏ Editar</button>
+  `;
+}
+
+function renderEditPlano(p,fromView=false) {
+  p=p||S.planos[currentPlanoKey]||{};
+  document.getElementById('mp-body').innerHTML=`
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Código BNCC</label>
+        <input class="form-control" id="fp-bncc" placeholder="EF09MA07" value="${p.bncc||''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição da Habilidade</label>
+        <input class="form-control" id="fp-bdesc" placeholder="Resumo..." value="${p.bnccDesc||''}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Conteúdo <span class="req">*</span></label>
+      <textarea class="form-control" id="fp-cont" rows="2" placeholder="O que será trabalhado?">${p.conteudo||''}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Dinâmica / Metodologia</label>
+      <textarea class="form-control" id="fp-din" rows="2" placeholder="Como a aula será conduzida?">${p.dinamica||''}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Avaliação / Instrumentos</label>
+      <textarea class="form-control" id="fp-aval" rows="2" placeholder="Como os alunos serão avaliados?">${p.avaliacao||''}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Observações</label>
+      <textarea class="form-control" id="fp-obs" rows="2">${p.obs||''}</textarea>
+    </div>
+  `;
+  document.getElementById('mp-footer').innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal('modal-plano')">Cancelar</button>
+    <button class="btn btn-success" onclick="savePlano()">💾 Salvar Plano</button>
+  `;
+}
+
+function savePlano() {
+  const conteudo=document.getElementById('fp-cont').value.trim();
+  if(!conteudo){alert('Informe o conteúdo da aula.');return;}
+  S.planos[currentPlanoKey]={
+    bncc:document.getElementById('fp-bncc').value.trim(),
+    bnccDesc:document.getElementById('fp-bdesc').value.trim(),
+    conteudo,
+    dinamica:document.getElementById('fp-din').value.trim(),
+    avaliacao:document.getElementById('fp-aval').value.trim(),
+    obs:document.getElementById('fp-obs').value.trim(),
+  };
+  save(); closeModal('modal-plano'); render();
+  if(currentView==='turma-detail') renderTurmaDetailList();
+  if(currentView==='relatorio') renderRelatorio();
+}
+
+// ============================================================
+// EXCEÇÃO (mover aula específica)
+// ============================================================
+let excKey=null;
+
+function openExcecaoModal(key, e) {
+  e.stopPropagation();
+  const {turmaId,date,turno}=parseKey(key);
+  const past=isPast(date);
+  if(past){ alert('Aulas passadas não podem ser editadas.'); return; }
+  excKey=key;
+  const turma=getTurma(turmaId);
+  // Find periodos for label
+  const aulasList=getAulasForRange(date,date);
+  const aulaInfo=aulasList.find(a=>a.key===key);
+  document.getElementById('me-sub').textContent=`${turma?.nome} — ${fmtDate(date)} · ${turnoLabel(turno,aulaInfo?.periodos||[])}`;
+  document.getElementById('me-date').value=date;
+
+  const excEntry=S.exceptions.find(e=>e.turmaId===turmaId&&e.origDate===date&&e.origTurno===turno);
+  document.getElementById('me-clear-btn').style.display=excEntry?'inline-flex':'none';
+
+  buildMePeriodos(turno);
+  openModal('modal-excecao');
+}
+
+function buildMePeriodos(selTurno) {
+  excSelTurno=selTurno; excSelPeriodo=null; // turno pre-selected, period not needed for block move
+  document.getElementById('me-periodos').innerHTML = TURNOS.map(t=>`
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <div style="font-size:0.78rem;color:var(--text-muted);min-width:44px">${t.label}</div>
+      <button class="pp ${selTurno===t.id?'sel':''}" id="mep-${t.id}"
+        onclick="selectMeTurno('${t.id}')" style="padding:4px 12px">${t.label}</button>
+    </div>
+  `).join('') + '<div style="font-size:0.76rem;color:var(--text-dim);margin-top:4px">Os períodos do turno selecionado serão mantidos.</div>';
+}
+
+let excSelTurno=null, excSelPeriodo=null;
+function selectMeTurno(turno) {
+  document.querySelectorAll('#me-periodos .pp').forEach(b=>b.classList.remove('sel'));
+  document.getElementById(`mep-${turno}`)?.classList.add('sel');
+  excSelTurno=turno;
+}
+
+function saveExcecao() {
+  const {turmaId,date:origDate,turno:origTurno}=parseKey(excKey);
+  const newDate=document.getElementById('me-date').value;
+  if(!newDate||!excSelTurno){alert('Selecione a data e o turno.');return;}
+  if(isPast(newDate)){alert('Não é possível mover para uma data passada.');return;}
+
+  S.exceptions=S.exceptions.filter(e=>!(e.turmaId===turmaId&&e.origDate===origDate&&e.origTurno===origTurno));
+  if(newDate!==origDate||excSelTurno!==origTurno) {
+    S.exceptions.push({turmaId,origDate,origTurno,newDate,newTurno:excSelTurno});
+    const oldKey=aulaKey(turmaId,origDate,origTurno);
+    const newKey=aulaKey(turmaId,newDate,excSelTurno);
+    if(S.planos[oldKey]){ S.planos[newKey]=S.planos[oldKey]; delete S.planos[oldKey]; }
+  }
+  save(); closeModal('modal-excecao'); render();
+}
+
+function clearExcecao() {
+  const {turmaId,date,turno}=parseKey(excKey);
+  S.exceptions=S.exceptions.filter(e=>!(e.turmaId===turmaId&&e.origDate===date&&e.origTurno===turno));
+  save(); closeModal('modal-excecao'); render();
+}
+
+// ============================================================
+// AULAS EXTRAS (fora da grade)
+// ============================================================
+let extraDate=null, extraTurmaId=null, extraTurno=null, extraPeriodo=null;
+
+function openExtraModal(dk) {
+  if(!S.turmas.length){alert('Cadastre uma turma primeiro!');return;}
+  extraDate=dk; extraTurmaId=null; extraTurno=null; extraPeriodo=null; extraPeriodos={};
+  document.getElementById('mex-sub').textContent=fmtDate(dk);
+
+  document.getElementById('mex-turmas').innerHTML=S.turmas.map(t=>`
+    <div onclick="selectExtraTurma('${t.id}')" id="ext-${t.id}" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;border:2px solid ${t.color}30;background:${t.color}10;cursor:pointer;transition:all 0.15s">
+      <div style="width:8px;height:8px;border-radius:2px;background:${t.color}"></div>
+      <div><div style="font-size:0.84rem;font-weight:500;color:${t.color}">${t.nome}</div><div style="font-size:0.72rem;color:var(--text-muted)">${t.disciplina}</div></div>
+    </div>
+  `).join('');
+
+  document.getElementById('mex-periodos').innerHTML=TURNOS.map(t=>`
+    <div style="margin-bottom:10px">
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:5px">${t.label}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        ${[1,2,3,4,5,6].map(p=>`<button class="pp" id="extp-${t.id}-${p}" onclick="toggleExtraPeriod('${t.id}',${p})">${p}º</button>`).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  openModal('modal-extra');
+}
+
+let extraPeriodos = {};
+function selectExtraTurma(id) {
+  extraTurmaId=id;
+  document.querySelectorAll('#mex-turmas > div').forEach(el=>{ el.style.borderWidth='2px'; el.style.borderColor=el.getAttribute('data-color')+'30'||'transparent'; });
+  const el=document.getElementById('ext-'+id);
+  if(el){ el.style.borderWidth='2px'; el.style.borderColor='white'; }
+}
+
+function toggleExtraPeriod(turno,periodo) {
+  if(!extraPeriodos[turno]) extraPeriodos[turno]=[];
+  const arr=extraPeriodos[turno];
+  const i=arr.indexOf(periodo);
+  if(i>=0) arr.splice(i,1); else arr.push(periodo);
+  const btn=document.getElementById(`extp-${turno}-${periodo}`);
+  if(btn) btn.classList.toggle('sel', arr.includes(periodo));
+  extraTurno=Object.keys(extraPeriodos).find(k=>extraPeriodos[k].length>0)||null;
+}
+
+function saveExtraAula() {
+  if(!extraTurmaId){alert('Selecione uma turma.');return;}
+  const turno=Object.keys(extraPeriodos).find(k=>extraPeriodos[k]?.length>0);
+  if(!turno){alert('Selecione ao menos um período.');return;}
+  const periodos=[...extraPeriodos[turno]].sort((a,b)=>a-b);
+  S.extras.push({id:uid(),turmaId:extraTurmaId,date:extraDate,turno,periodos});
+  extraPeriodos={};
+  save(); closeModal('modal-extra'); render();
+}
+
+// ============================================================
+// TURMA DETAIL
+// ============================================================
+let detailTurmaId=null, detailFilter='all';
+
+function openTurmaDetail(id) {
+  detailTurmaId=id;
+  detailFilter='all';
+  const t=getTurma(id);
+  document.getElementById('td-dot').style.background=t.color;
+  document.getElementById('td-title').textContent=`${t.nome} — ${t.disciplina}`;
+  document.querySelectorAll('.fchip').forEach(c=>c.classList.remove('active'));
+  document.querySelector('#view-turma-detail .fchip').classList.add('active');
+  renderTurmaDetailList();
+  setView('turma-detail');
+}
+
+function setDetailFilter(f,el) {
+  detailFilter=f;
+  document.querySelectorAll('#view-turma-detail .fchip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderTurmaDetailList();
+}
+
+function renderTurmaDetailList() {
+  // Get all aulas for this turma across a big range
+  const farFuture=`${TODAY.getFullYear()+2}-12-31`;
+  const farPast=`${TODAY.getFullYear()-2}-01-01`;
+  let aulas=getAulasForRange(farPast,farFuture).filter(a=>a.turmaId===detailTurmaId);
+  aulas.sort((a,b)=>a.date.localeCompare(b.date)||(a.turno||'').localeCompare(b.turno||''));
+
+  const total=aulas.length;
+  const pl=aulas.filter(a=>a.plano?.conteudo).length;
+  document.getElementById('td-sub').textContent=`${total} aulas · ${pl} planejadas`;
+
+  if(detailFilter==='upcoming') aulas=aulas.filter(a=>!isPast(a.date)||isToday(a.date));
+  if(detailFilter==='unplanned') aulas=aulas.filter(a=>!a.plano?.conteudo);
+  if(detailFilter==='planned') aulas=aulas.filter(a=>a.plano?.conteudo);
+
+  const list=document.getElementById('td-list');
+  if(!aulas.length){
+    list.innerHTML='<div class="empty-state"><div class="ei">📋</div><p>Nenhuma aula encontrada.</p></div>';
+    return;
+  }
+
+  list.innerHTML='<div class="aulas-list">'+aulas.map(a=>{
+    const past=isPast(a.date);
+    const pl=a.plano?.conteudo;
+    return `<div class="aula-row ${past?'past':''}" onclick="openPlano('${a.key}')">
+      <div class="ar-date">${fmtDate(a.date)}</div>
+      <div class="ar-period">${turnoLabel(a.turno,a.periodos)}</div>
+      <div class="ar-content ${pl?'':'empty'}">${pl?a.plano.conteudo:'Clique para planejar...'}</div>
+      ${a.isException?'<div class="ar-exception">⚠ Horário alt.</div>':''}
+      ${a.isExtra?'<div class="ar-exception" style="color:#60a5fa">★ Extra</div>':''}
+      ${a.plano?.bncc?`<span class="bncc-code">${a.plano.bncc}</span>`:''}
+      <div class="ar-status ${pl?'planned':'unplanned'}">${pl?'✓ Planejada':'! Pendente'}</div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+// ============================================================
+// TRIMESTRES
+// ============================================================
+let editTrimId=null;
+
+function openTrimModal(id=null) {
+  editTrimId=id;
+  const t=id?S.trimestres.find(x=>x.id===id):null;
+  document.getElementById('mtr-title').textContent=t?'Editar Trimestre':'Novo Trimestre';
+  document.getElementById('tr-nome').value=t?.nome||'';
+  document.getElementById('tr-inicio').value=t?.inicio||'';
+  document.getElementById('tr-fim').value=t?.fim||'';
+  document.getElementById('mtr-del').innerHTML=t?`<button class="btn btn-danger btn-sm" onclick="removeTrimestre('${id}')">🗑 Remover</button>`:'';
+  openModal('modal-trim');
+}
+
+function saveTrimestre() {
+  const nome=document.getElementById('tr-nome').value.trim();
+  const inicio=document.getElementById('tr-inicio').value;
+  const fim=document.getElementById('tr-fim').value;
+  if(!nome||!inicio||!fim){alert('Preencha todos os campos.');return;}
+  if(editTrimId) { const t=S.trimestres.find(x=>x.id===editTrimId); t.nome=nome;t.inicio=inicio;t.fim=fim; }
+  else S.trimestres.push({id:uid(),nome,inicio,fim});
+  save(); closeModal('modal-trim'); render();
+  if(currentView==='trimestres') renderTrimestresView();
+}
+
+function removeTrimestre(id) {
+  if(!confirm('Remover trimestre?'))return;
+  S.trimestres=S.trimestres.filter(t=>t.id!==id);
+  save(); closeModal('modal-trim'); render();
+  if(currentView==='trimestres') renderTrimestresView();
+}
+
+function renderTrimestresView() {
+  const grid=document.getElementById('trims-grid');
+  if(!S.trimestres.length){
+    grid.innerHTML='<div class="empty-state"><div class="ei">📅</div><p>Nenhum trimestre cadastrado.</p></div>';
+    return;
+  }
+  grid.innerHTML=S.trimestres.map(tr=>{
+    const aulas=getAulasForRange(tr.inicio,tr.fim);
+    const total=aulas.length, pl=aulas.filter(a=>a.plano?.conteudo).length;
+    const pct=total>0?Math.round(pl/total*100):0;
+    return `<div class="trim-card">
+      <div class="trim-card-head">
+        <div class="trim-card-title">${tr.nome}</div>
+        <div class="trim-card-dates">${fmtDate(tr.inicio)} → ${fmtDate(tr.fim)}</div>
+      </div>
+      <div class="trim-card-body">
+        <div class="trim-stat"><span>Total de aulas</span><span>${total}</span></div>
+        <div class="trim-stat"><span>Planejadas</span><span style="color:var(--planned)">${pl}</span></div>
+        <div class="trim-stat"><span>Sem plano</span><span style="color:var(--unplanned)">${total-pl}</span></div>
+        <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:0.74rem;color:var(--text-muted);margin-bottom:10px">
+          <span>Progresso</span><span style="color:var(--planned);font-weight:600">${pct}%</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="width:100%" onclick="openTrimModal('${tr.id}')">✏ Editar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// RELATÓRIO
+// ============================================================
+function renderRelatorio() {
+  const turmaId=document.getElementById('rel-turma')?.value||'';
+  const trimId=document.getElementById('rel-trim')?.value||'';
+  const cont=document.getElementById('relatorio-content');
+  if(!cont)return;
+
+  const farFuture=`${TODAY.getFullYear()+2}-12-31`;
+  const farPast=`${TODAY.getFullYear()-2}-01-01`;
+  let startDk=farPast, endDk=farFuture;
+  if(trimId){const tr=S.trimestres.find(t=>t.id===trimId);if(tr){startDk=tr.inicio;endDk=tr.fim;}}
+
+  let aulas=getAulasForRange(startDk,endDk);
+  if(turmaId) aulas=aulas.filter(a=>a.turmaId===turmaId);
+  aulas.sort((a,b)=>a.date.localeCompare(b.date));
+
+  if(!aulas.length){cont.innerHTML='<div class="empty-state"><div class="ei">📊</div><p>Nenhuma aula encontrada.</p></div>';return;}
+
+  const total=aulas.length, pl=aulas.filter(a=>a.plano?.conteudo).length;
+  const pct=Math.round(pl/total*100);
+
+  let html=`<div class="stats-row" style="margin-bottom:18px">
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent)">${total}</div><div class="stat-lbl">Total</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--planned)">${pl}</div><div class="stat-lbl">Planejadas</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--unplanned)">${total-pl}</div><div class="stat-lbl">Sem plano</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--warn)">${pct}%</div><div class="stat-lbl">% Planejado</div></div>
+  </div><div class="aulas-list">`;
+
+  aulas.forEach(a=>{
+    const turma=getTurma(a.turmaId);
+    const past=isPast(a.date);
+    const plnd=a.plano?.conteudo;
+    html+=`<div class="aula-row ${past?'past':''}" onclick="openPlano('${a.key}')">
+      <div class="ar-date">${fmtDate(a.date)}</div>
+      <div style="display:flex;align-items:center;gap:6px;min-width:110px">
+        <div style="width:7px;height:7px;border-radius:2px;background:${turma?.color||'#aaa'}"></div>
+        <span style="font-size:0.78rem;font-weight:500">${turma?.nome||'?'}</span>
+      </div>
+      <div class="ar-period">${turnoLabel(a.turno,a.periodos)}</div>
+      <div class="ar-content ${plnd?'':'empty'}">${plnd?a.plano.conteudo:'Não planejada'}</div>
+      ${a.plano?.bncc?`<span class="bncc-code">${a.plano.bncc}</span>`:''}
+      <div class="ar-status ${plnd?'planned':'unplanned'}">${plnd?'✓':'!'}</div>
+    </div>`;
+  });
+  html+='</div>';
+  cont.innerHTML=html;
+}
+
+// ============================================================
+// GOOGLE DRIVE INTEGRATION
+// ============================================================
+const DRIVE_FILE_NAME = 'planejador_aulas_dados.json';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+
+let driveClientId = localStorage.getItem('drive_client_id') || '';
+let driveAccessToken = null;
+let driveFileId = localStorage.getItem('drive_file_id') || null;
+let driveReady = false;
+
+function setDriveStatus(state, text) {
+  const bar = document.getElementById('drive-status');
+  const dot = document.getElementById('drive-dot');
+  const lbl = document.getElementById('drive-label');
+  bar.className = 'drive-bar ' + state;
+  dot.className = 'drive-dot ' + (state==='connected'?'on':state==='syncing'?'spin':'off');
+  lbl.textContent = text;
+}
+
+function handleDriveClick() {
+  if (!driveClientId) { openModal('modal-drive-setup'); return; }
+  if (!driveAccessToken) { initDriveAuth(); return; }
+  // Already connected — offer disconnect
+  if (confirm('Google Drive conectado. Deseja desconectar?')) {
+    driveAccessToken = null; driveReady = false;
+    setDriveStatus('disconnected', 'Google Drive');
+  }
+}
+
+function saveDriveConfig() {
+  const id = document.getElementById('drive-client-id').value.trim();
+  if (!id) { alert('Cole o Client ID.'); return; }
+  driveClientId = id;
+  localStorage.setItem('drive_client_id', id);
+  closeModal('modal-drive-setup');
+  initDriveAuth();
+}
+
+function initDriveAuth() {
+  if (!driveClientId) { openModal('modal-drive-setup'); return; }
+  setDriveStatus('syncing', 'Conectando...');
+  try {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: driveClientId,
+      scope: DRIVE_SCOPE,
+      callback: async (resp) => {
+        if (resp.error) {
+          setDriveStatus('error', 'Erro de autenticação');
+          console.error('Auth error:', resp);
+          return;
+        }
+        driveAccessToken = resp.access_token;
+        driveReady = true;
+        setDriveStatus('syncing', 'Verificando Drive...');
+        await findOrCreateDriveFile();
+      },
+    });
+    client.requestAccessToken();
+  } catch(e) {
+    setDriveStatus('error', 'API não carregada');
+    alert('Erro ao carregar a API do Google. Verifique sua conexão e o Client ID.');
+  }
+}
+
+async function driveRequest(url, options={}) {
+  const resp = await fetch(url, {
+    ...options,
+    headers: { 'Authorization': `Bearer ${driveAccessToken}`, ...options.headers }
+  });
+  if (!resp.ok) {
+    if (resp.status === 401) { driveAccessToken = null; driveReady = false; setDriveStatus('disconnected','Google Drive'); }
+    throw new Error(`Drive API error: ${resp.status}`);
+  }
+  return resp;
+}
+
+async function findOrCreateDriveFile() {
+  try {
+    // Search for existing file
+    let fileId = driveFileId;
+    if (!fileId) {
+      const searchResp = await driveRequest(
+        `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}'+and+trashed=false&fields=files(id,name,modifiedTime)`
+      );
+      const data = await searchResp.json();
+      if (data.files && data.files.length > 0) {
+        fileId = data.files[0].id;
+        localStorage.setItem('drive_file_id', fileId);
+        driveFileId = fileId;
+      }
+    }
+
+    if (fileId) {
+      // File exists — check if Drive has newer data
+      const localData = JSON.parse(localStorage.getItem('planner_v3') || '{}');
+      const hasLocalData = localData.turmas && localData.turmas.length > 0;
+      if (hasLocalData) {
+        // Ask user what to do
+        openModal('modal-drive-import');
+        setDriveStatus('connected', '● Conectado');
+      } else {
+        // No local data — load from Drive
+        await loadFromDrive();
+      }
+    } else {
+      // No file yet — create it and save current data
+      await saveDataToDrive(true);
+      setDriveStatus('connected', '● Conectado');
+    }
+  } catch(e) {
+    console.error('Drive findOrCreate error:', e);
+    setDriveStatus('error', 'Erro ao acessar Drive');
+  }
+}
+
+async function saveDataToDrive(creating=false) {
+  setDriveStatus('syncing', 'Salvando...');
+  try {
+    const content = JSON.stringify(S);
+    const blob = new Blob([content], { type: 'application/json' });
+
+    let url, method;
+    if (creating || !driveFileId) {
+      // Create new file
+      const meta = { name: DRIVE_FILE_NAME, mimeType: 'application/json' };
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(meta)], {type:'application/json'}));
+      form.append('file', blob);
+      const resp = await driveRequest(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+        { method: 'POST', body: form }
+      );
+      const data = await resp.json();
+      driveFileId = data.id;
+      localStorage.setItem('drive_file_id', driveFileId);
+    } else {
+      // Update existing file
+      await driveRequest(
+        `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`,
+        { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: content }
+      );
+    }
+    setDriveStatus('connected', '● Conectado');
+  } catch(e) {
+    console.error('Drive save error:', e);
+    setDriveStatus('error', 'Erro ao salvar');
+  }
+}
+
+async function loadFromDrive() {
+  setDriveStatus('syncing', 'Carregando...');
+  try {
+    const resp = await driveRequest(
+      `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`
+    );
+    const data = await resp.json();
+    S = { ...S, ...data };
+    localStorage.setItem('planner_v3', JSON.stringify(S));
+    render();
+    setDriveStatus('connected', '● Conectado');
+  } catch(e) {
+    console.error('Drive load error:', e);
+    setDriveStatus('error', 'Erro ao carregar');
+  }
+}
+
+async function importFromDrive() {
+  closeModal('modal-drive-import');
+  await loadFromDrive();
+}
+
+async function keepLocalData() {
+  closeModal('modal-drive-import');
+  await saveDataToDrive(false);
+}
+
+// Override save() to also sync to Drive
+const _localSave = save;
+function save() {
+  try { localStorage.setItem('planner_v3', JSON.stringify(S)); } catch(e){}
+  if (driveReady && driveAccessToken) {
+    saveDataToDrive().catch(()=>{});
+  }
+}
+
+// Auto-connect if client ID already saved
+window.addEventListener('load', () => {
+  if (driveClientId) {
+    // Slight delay to let Google API load
+    setTimeout(() => {
+      if (typeof google !== 'undefined') {
+        initDriveAuth();
+      } else {
+        setDriveStatus('error', 'API offline');
+      }
+    }, 1500);
+  }
+});
+
+// ============================================================
+// EXPORT
+// ============================================================
+function exportData() {
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='planejador_aulas_v3.json'; a.click();
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() { renderSidebar(); if(currentView==='calendar') renderCalendar(); }
+render();
+</script>
+</body>
+</html>
