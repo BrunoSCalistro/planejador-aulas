@@ -1,0 +1,2310 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="auto">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#161b25">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Planejador">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23161b25'/><text y='72' x='50' text-anchor='middle' font-size='60'>📚</text></svg>">
+<title>Planejador de Aulas</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── TEMA ─────────────────────────────────────────────── */
+:root{
+  --bg:#0d1117;--surface:#161b25;--surface2:#1c2333;--surface3:#232d42;
+  --border:#293144;--border2:#374060;--text:#dde2f0;--text-muted:#7886aa;
+  --text-dim:#404d6e;--accent:#5b8cff;--accent-hover:#4a7bee;
+  --planned:#30c97e;--unplanned:#ff5f5f;--warn:#f59e0b;
+  --radius:10px;--shadow:0 8px 32px rgba(0,0,0,.45);
+  --manha-bg:rgba(251,191,36,.07);--manha-bd:rgba(251,191,36,.22);--manha-tx:#e8a820;
+  --tarde-bg:rgba(251,113,133,.07);--tarde-bd:rgba(251,113,133,.22);--tarde-tx:#f07090;
+  --noite-bg:rgba(139,92,246,.07);--noite-bd:rgba(139,92,246,.22);--noite-tx:#a78bfa;
+}
+[data-theme="light"]{
+  --bg:#f2f4fa;--surface:#ffffff;--surface2:#edf0f9;--surface3:#e2e6f5;
+  --border:#cdd3e8;--border2:#b0bada;--text:#1e2440;--text-muted:#5a6488;
+  --text-dim:#9aa4c4;--accent:#3a6eea;--accent-hover:#2a5cd4;
+  --planned:#198a55;--unplanned:#d63030;--warn:#c47a06;
+  --shadow:0 4px 20px rgba(0,0,0,.1);
+  --manha-bg:rgba(180,100,0,.06);--manha-bd:rgba(180,100,0,.25);--manha-tx:#a06000;
+  --tarde-bg:rgba(200,30,50,.06);--tarde-bd:rgba(200,30,50,.25);--tarde-tx:#b02030;
+  --noite-bg:rgba(100,40,210,.06);--noite-bd:rgba(100,40,210,.25);--noite-tx:#6030c0;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;transition:background .25s,color .25s}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── SYNC BAR (NOVO) ──────────────────────────────────── */
+#sync-bar{position:sticky;top:0;z-index:110;height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:.72rem;font-weight:500;border-bottom:1px solid var(--border);transition:background .3s,color .3s}
+#sync-bar.synced{background:#091a0f;color:#30c97e}
+#sync-bar.pending{background:#1c1505;color:#f59e0b}
+#sync-bar.error{background:#1a0808;color:#ff5f5f}
+#sync-bar .sb-left{display:flex;align-items:center;gap:7px}
+#sync-bar .sb-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+#sync-bar .sb-dot.spin{animation:sbspin 1s linear infinite}
+@keyframes sbspin{0%,100%{opacity:1}50%{opacity:.2}}
+#sync-bar .sb-time{font-size:.65rem;opacity:.65}
+#sync-bar .sb-btn{background:none;border:1px solid currentColor;color:inherit;border-radius:4px;padding:1px 8px;font-size:.65rem;cursor:pointer;font-family:'Outfit',sans-serif}
+#sync-bar .sb-btn:hover{opacity:.75}
+
+/* ── HEADER ───────────────────────────────────────────── */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 18px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:30px;z-index:100;gap:10px}
+.logo{font-family:'Lora',serif;font-size:1.05rem;font-weight:700;white-space:nowrap;letter-spacing:-.3px}.logo span{color:var(--accent)}
+.header-tabs{display:flex;gap:1px;background:var(--surface2);border-radius:8px;padding:2px;flex:1;max-width:460px}
+.tab-btn{flex:1;padding:4px 8px;border-radius:6px;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:.76rem;font-weight:500;background:transparent;color:var(--text-muted);transition:all .15s;white-space:nowrap}
+.tab-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.tab-btn:hover:not(.active){color:var(--text)}
+.header-right{display:flex;gap:5px;align-items:center}
+
+/* ── BUTTONS ──────────────────────────────────────────── */
+.btn{padding:6px 13px;border-radius:8px;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:.78rem;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-success{background:rgba(48,201,126,.12);color:var(--planned);border:1px solid rgba(48,201,126,.28)}.btn-success:hover{background:rgba(48,201,126,.22)}
+.btn-danger{background:rgba(255,95,95,.1);color:var(--unplanned);border:1px solid rgba(255,95,95,.25)}.btn-danger:hover{background:rgba(255,95,95,.2)}
+.btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border2)}.btn-ghost:hover{color:var(--text);border-color:var(--text-muted)}
+.btn-warn{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.28)}.btn-warn:hover{background:rgba(245,158,11,.2)}
+.btn-sm{padding:4px 10px;font-size:.73rem}
+.btn-icon{padding:5px;border-radius:6px;background:transparent;border:none;cursor:pointer;color:var(--text-muted);transition:all .15s;font-size:.82rem;line-height:1}
+.btn-icon:hover{background:var(--surface3);color:var(--text)}
+.icon-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--border2);background:var(--surface2);cursor:pointer;font-size:.88rem;display:flex;align-items:center;justify-content:center;color:var(--text);transition:all .15s}
+.icon-btn:hover{background:var(--surface3)}
+
+/* ── LAYOUT ───────────────────────────────────────────── */
+.app-layout{display:grid;grid-template-columns:232px 1fr;min-height:calc(100vh - 84px)}
+
+/* ── SIDEBAR ──────────────────────────────────────────── */
+aside{background:var(--surface);border-right:1px solid var(--border);padding:14px 10px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.sidebar-section-label{font-size:.6rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);padding:0 6px;margin-bottom:6px}
+.disc-group{margin-bottom:2px}
+.disc-header{display:flex;align-items:center;gap:5px;padding:5px 7px;border-radius:7px;cursor:pointer;transition:background .12s;user-select:none}
+.disc-header:hover{background:var(--surface2)}
+.disc-chevron{font-size:.6rem;color:var(--text-dim);transition:transform .2s;flex-shrink:0}
+.disc-header.open .disc-chevron{transform:rotate(90deg)}
+.disc-name{font-size:.78rem;font-weight:600;color:var(--text-muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.disc-badge{font-size:.62rem;color:var(--text-dim);background:var(--surface3);border-radius:10px;padding:1px 5px;flex-shrink:0}
+.disc-turmas{display:none;padding-left:6px}
+.disc-turmas.open{display:block}
+.turma-item{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:7px;margin-bottom:1px;transition:background .12s}
+.turma-item:hover{background:var(--surface2)}
+.t-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.turma-info{flex:1;min-width:0;cursor:pointer}
+.turma-name{font-size:.78rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.turma-actions{display:flex;gap:1px;opacity:0;transition:opacity .15s}
+.turma-item:hover .turma-actions{opacity:1}
+.trim-item{padding:6px 8px;border-radius:7px;border:1px solid var(--border);margin-bottom:3px;cursor:pointer;transition:all .15s}
+.trim-item:hover{border-color:var(--border2);background:var(--surface2)}
+.trim-item-name{font-size:.76rem;font-weight:600}
+.trim-item-dates{font-size:.65rem;color:var(--text-muted);margin-top:1px}
+.legend{display:flex;flex-direction:column;gap:4px}
+.legend-row{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--text-muted)}
+.leg-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+
+/* ── MAIN ─────────────────────────────────────────────── */
+main{overflow-y:auto}
+.view{display:none;padding:18px 20px}
+.view.active{display:block}
+
+/* ── STATS ────────────────────────────────────────────── */
+.stats-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 13px;flex:1;min-width:78px}
+.stat-val{font-family:'Lora',serif;font-size:1.3rem;font-weight:700;line-height:1}
+.stat-lbl{font-size:.65rem;color:var(--text-muted);margin-top:3px}
+
+/* ── CAL NAV ──────────────────────────────────────────── */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cal-title{font-family:'Lora',serif;font-size:1.25rem;font-weight:700}
+.nav-group{display:flex;gap:4px;align-items:center}
+.nav-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--border2);background:var(--surface2);cursor:pointer;font-size:.82rem;display:flex;align-items:center;justify-content:center;color:var(--text);transition:all .15s}
+.nav-btn:hover{background:var(--surface3)}
+
+/* ── MONTHLY CALENDAR ─────────────────────────────────── */
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px}
+.cal-wd{text-align:center;font-size:.6rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-dim);padding:3px 0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-day{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);min-height:96px;padding:5px 4px;transition:border-color .15s;position:relative;overflow:hidden}
+.cal-day:hover{border-color:var(--border2)}
+.cal-day.other{opacity:.18;pointer-events:none}
+.cal-day.today{border-color:var(--accent)}
+.cal-day.in-trim{background:var(--surface2)}
+.cal-day.past{opacity:.6}
+.day-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.day-num{font-size:.68rem;font-weight:600;color:var(--text-muted)}
+.today .day-num{color:var(--accent);background:rgba(91,140,255,.15);border-radius:3px;padding:1px 4px}
+.day-add{opacity:0;background:none;border:none;cursor:pointer;color:var(--accent);font-size:.85rem;padding:1px 3px;border-radius:4px;transition:opacity .15s}
+.cal-day:hover .day-add{opacity:1}
+.day-add:hover{background:rgba(91,140,255,.15)}
+
+/* ── TURNO BLOCKS ─────────────────────────────────────── */
+.turno-blk{margin-bottom:3px;border-radius:5px;padding:2px 4px}
+.turno-blk.manha{background:var(--manha-bg);border-left:2px solid var(--manha-bd)}
+.turno-blk.tarde{background:var(--tarde-bg);border-left:2px solid var(--tarde-bd)}
+.turno-blk.noite{background:var(--noite-bg);border-left:2px solid var(--noite-bd)}
+.turno-lbl{font-size:.5rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px}
+.turno-lbl.manha{color:var(--manha-tx)}
+.turno-lbl.tarde{color:var(--tarde-tx)}
+.turno-lbl.noite{color:var(--noite-tx)}
+
+/* ── PILLS ────────────────────────────────────────────── */
+.pill{padding:2px 5px;border-radius:4px;font-size:.6rem;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:3px;transition:opacity .15s,transform .1s;margin-bottom:2px;white-space:nowrap;overflow:hidden;max-width:100%}
+.pill:hover{opacity:.8;transform:translateX(1px)}
+.pill .dot{width:4px;height:4px;border-radius:50%;flex-shrink:0}
+.pill.planned{background:rgba(48,201,126,.1);color:var(--planned);border:1px solid rgba(48,201,126,.18)}
+.pill.unplanned{background:rgba(255,95,95,.09);color:var(--unplanned);border:1px solid rgba(255,95,95,.18)}
+.pill.faded{background:rgba(120,120,120,.08);color:var(--text-dim);border:1px solid rgba(120,120,120,.14)}
+.pill.exc{outline:1px dashed rgba(245,158,11,.45)}
+.pill.shared{outline:1px dashed rgba(91,140,255,.5)}
+.pill.draft{outline:1px dashed rgba(245,158,11,.7)}
+.pill-name{overflow:hidden;text-overflow:ellipsis}
+/* draft badge mini no calendário */
+.pill-draft-dot{width:5px;height:5px;border-radius:50%;background:var(--warn);flex-shrink:0}
+
+/* ── WEEK GRID ────────────────────────────────────────── */
+.week-scroll{overflow-x:auto}
+.week-grid{display:grid;grid-template-columns:50px repeat(5,1fr);min-width:580px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+.wk-hd{background:var(--surface2);border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:7px 5px;text-align:center}
+.wk-hd:last-child{border-right:none}
+.wk-day-name{font-size:.67rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.7px}
+.wk-day-dt{font-size:.78rem;font-weight:700;margin-top:1px}
+.wk-day-dt.today-dt{color:var(--accent)}
+.wk-per-lbl{border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:3px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.wk-per-num{font-size:.62rem;font-weight:700;color:var(--text-dim)}
+.wk-turno-badge{font-size:.47rem;font-weight:800;letter-spacing:.5px;padding:1px 3px;border-radius:3px;text-transform:uppercase}
+.wk-turno-badge.manha{background:var(--manha-bg);color:var(--manha-tx);border:1px solid var(--manha-bd)}
+.wk-turno-badge.tarde{background:var(--tarde-bg);color:var(--tarde-tx);border:1px solid var(--tarde-bd)}
+.wk-turno-badge.noite{background:var(--noite-bg);color:var(--noite-tx);border:1px solid var(--noite-bd)}
+.wk-cell{border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:4px;min-height:50px;position:relative;transition:background .12s}
+.wk-cell:last-child{border-right:none}
+.wk-cell.today-col{background:rgba(91,140,255,.035)}
+.wk-cell.past-col{opacity:.72}
+.wk-cell.drag-over{background:rgba(91,140,255,.14)!important;border:2px dashed var(--accent)!important}
+.wk-pill{padding:3px 7px;border-radius:5px;font-size:.61rem;font-weight:500;cursor:grab;margin-bottom:2px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .15s,box-shadow .15s;user-select:none;border-left:3px solid transparent}
+.wk-pill:hover{opacity:.85;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.wk-pill.dragging{opacity:.35;transform:scale(.95)}
+.wk-pill.planned{background:rgba(48,201,126,.12);color:var(--planned);border-color:var(--planned)}
+.wk-pill.unplanned{background:rgba(255,95,95,.1);color:var(--unplanned);border-color:var(--unplanned)}
+.wk-pill.faded{background:rgba(100,100,100,.09);color:var(--text-dim);border-color:var(--text-dim)}
+.wk-pill.draft{background:rgba(245,158,11,.1);color:var(--warn);border-color:var(--warn)}
+.wk-section-sep{border-top:2px solid}
+.wk-section-sep.manha{border-color:var(--manha-bd)}
+.wk-section-sep.tarde{border-color:var(--tarde-bd)}
+.wk-section-sep.noite{border-color:var(--noite-bd)}
+
+/* ── SEARCH ───────────────────────────────────────────── */
+.search-box{display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--border2);border-radius:10px;padding:8px 13px;transition:border-color .15s;margin-bottom:12px}
+.search-box:focus-within{border-color:var(--accent)}
+.search-icon{color:var(--text-dim);font-size:.95rem}
+.search-inp{background:none;border:none;outline:none;font-family:'Outfit',sans-serif;font-size:.85rem;color:var(--text);flex:1}
+.search-inp::placeholder{color:var(--text-dim)}
+.search-filters{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:11px}
+.sf{padding:3px 9px;border-radius:14px;border:1.5px solid var(--border2);background:transparent;color:var(--text-muted);cursor:pointer;font-size:.69rem;font-family:'Outfit',sans-serif;transition:all .13s}
+.sf.active{background:var(--surface3);color:var(--accent);border-color:var(--accent)}
+.search-date-row{display:flex;gap:6px;align-items:center;margin-bottom:11px}
+
+/* ── MODALS ───────────────────────────────────────────── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.68);z-index:200;align-items:center;justify-content:center;padding:14px}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:620px;max-height:93vh;overflow-y:auto;box-shadow:var(--shadow);animation:mIn .17s ease}
+.modal.wide{max-width:800px}
+@keyframes mIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+.modal-hd{padding:16px 19px 11px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:1}
+.modal-title{font-family:'Lora',serif;font-size:1rem;font-weight:600}
+.modal-sub{font-size:.72rem;color:var(--text-muted);margin-top:2px}
+.modal-x{background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:2px 6px;border-radius:5px;transition:all .15s}
+.modal-x:hover{background:var(--surface3);color:var(--text)}
+.modal-body{padding:14px 19px}
+.modal-ft{padding:10px 19px 14px;display:flex;gap:6px;justify-content:flex-end;border-top:1px solid var(--border);flex-wrap:wrap;align-items:center}
+
+/* ── FORMS ────────────────────────────────────────────── */
+.fg{margin-bottom:12px}
+.fl{display:block;font-size:.71rem;font-weight:600;color:var(--text-muted);margin-bottom:5px}
+.req{color:var(--unplanned)}
+.fc{width:100%;padding:8px 10px;border:1.5px solid var(--border2);border-radius:8px;font-family:'Outfit',sans-serif;font-size:.81rem;background:var(--bg);color:var(--text);outline:none;transition:border-color .15s;resize:vertical}
+.fc:focus{border-color:var(--accent)}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ── BNCC TAGS ────────────────────────────────────────── */
+.bncc-wrap{display:flex;flex-wrap:wrap;gap:5px;padding:6px 9px;border:1.5px solid var(--border2);border-radius:8px;background:var(--bg);min-height:38px;cursor:text;transition:border-color .15s}
+.bncc-wrap:focus-within{border-color:var(--accent)}
+.bncc-tag{background:rgba(91,140,255,.14);color:var(--accent);border-radius:5px;padding:2px 6px;font-size:.7rem;font-weight:600;font-family:monospace;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.bncc-del{background:none;border:none;cursor:pointer;color:var(--accent);font-size:.8rem;padding:0;line-height:1;opacity:.7}
+.bncc-del:hover{opacity:1}
+.bncc-inp{background:none;border:none;outline:none;font-family:'Outfit',sans-serif;font-size:.81rem;color:var(--text);min-width:80px;flex:1;padding:1px 2px}
+
+/* ── COLOR / DIAS ─────────────────────────────────────── */
+.color-grid{display:flex;flex-wrap:wrap;gap:5px}
+.cswatch{width:20px;height:20px;border-radius:5px;cursor:pointer;border:3px solid transparent;transition:all .15s}
+.cswatch.sel{border-color:var(--text);transform:scale(1.2)}
+.dias-grid{display:flex;gap:3px;flex-wrap:wrap}
+.dia-btn{padding:3px 8px;border-radius:6px;border:1.5px solid var(--border2);background:transparent;color:var(--text-muted);cursor:pointer;font-family:'Outfit',sans-serif;font-size:.72rem;font-weight:500;transition:all .15s}
+.dia-btn.sel{border-color:var(--accent);color:var(--accent);background:rgba(91,140,255,.1)}
+.hr-row{display:flex;align-items:flex-start;gap:7px;padding:6px 9px;border-radius:8px;background:var(--surface2);margin-bottom:4px}
+.hr-day-lbl{font-size:.74rem;font-weight:600;min-width:28px;padding-top:2px}
+.turno-sel{display:flex;flex-direction:column;gap:4px;flex:1}
+.turno-row{display:flex;align-items:center;gap:5px}
+.turno-nm{font-size:.66rem;color:var(--text-muted);min-width:36px}
+.per-row{display:flex;gap:3px;flex-wrap:wrap}
+.pp{padding:2px 6px;border-radius:5px;border:1.5px solid var(--border2);background:transparent;color:var(--text-dim);cursor:pointer;font-size:.67rem;font-weight:500;font-family:'Outfit',sans-serif;transition:all .15s}
+.pp.sel{background:rgba(91,140,255,.14);color:var(--accent);border-color:var(--accent)}
+
+/* ── PLAN VIEW ────────────────────────────────────────── */
+.plan-blk{margin-bottom:12px}
+.plan-lbl{font-size:.6rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px}
+.plan-val{background:var(--bg);border-radius:8px;padding:9px 11px;font-size:.81rem;line-height:1.68;white-space:pre-wrap;border:1px solid var(--border)}
+.bncc-code{display:inline-block;background:rgba(91,140,255,.14);color:var(--accent);border-radius:4px;padding:1px 6px;font-size:.67rem;font-weight:700;font-family:monospace;margin-right:4px;margin-bottom:3px}
+
+/* ── STATUS BADGE (NOVO) ──────────────────────────────── */
+.status-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:7px 11px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)}
+.status-pill{padding:2px 9px;border-radius:12px;font-size:.68rem;font-weight:700}
+.status-pill.draft{background:rgba(245,158,11,.15);color:var(--warn);border:1px solid rgba(245,158,11,.35)}
+.status-pill.published{background:rgba(48,201,126,.12);color:var(--planned);border:1px solid rgba(48,201,126,.28)}
+.status-unsync{font-size:.67rem;color:var(--warn);display:flex;align-items:center;gap:4px;margin-left:auto}
+
+/* ── SHARE SELECTOR ───────────────────────────────────── */
+.share-box{border:1.5px solid var(--border2);border-radius:10px;overflow:hidden;margin-top:4px}
+.share-step{padding:10px 13px;border-bottom:1px solid var(--border)}
+.share-step:last-child{border-bottom:none}
+.share-step-lbl{font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:7px}
+.turma-chips{display:flex;flex-wrap:wrap;gap:5px}
+.turma-chip{padding:4px 10px;border-radius:16px;border:1.5px solid var(--border2);background:transparent;color:var(--text-muted);cursor:pointer;font-size:.72rem;font-family:'Outfit',sans-serif;transition:all .14s;display:flex;align-items:center;gap:5px}
+.turma-chip.sel{border-color:var(--accent);color:var(--accent);background:rgba(91,140,255,.1)}
+.mc-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.mc-nav-title{font-size:.76rem;font-weight:600}
+.mc-nav-btn{background:none;border:none;cursor:pointer;color:var(--text-muted);padding:2px 5px;border-radius:4px}
+.mc-nav-btn:hover{background:var(--surface3)}
+.mc-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.mc-hd{font-size:.57rem;font-weight:700;text-align:center;color:var(--text-dim);padding:2px 0}
+.mc-day{padding:4px 2px;text-align:center;font-size:.65rem;border-radius:4px;cursor:default;border:1px solid transparent;transition:all .12s;color:var(--text-dim)}
+.mc-day.has{color:var(--text);font-weight:600;border-color:var(--border2);cursor:pointer}
+.mc-day.has:hover{background:var(--surface3)}
+.mc-day.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+.mc-day.other{opacity:.25}
+.mc-sel-count{font-size:.7rem;color:var(--accent);margin-top:5px;font-weight:500}
+
+/* ── AULAS LIST ───────────────────────────────────────── */
+.aulas-list{display:flex;flex-direction:column;gap:4px}
+.aula-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:all .14s}
+.aula-row:hover{border-color:var(--border2);background:var(--surface2)}
+.aula-row.past{opacity:.58}
+.ar-date{font-size:.72rem;font-weight:600;color:var(--text-muted);min-width:66px;flex-shrink:0}
+.ar-period{font-size:.66rem;color:var(--text-dim);min-width:92px;flex-shrink:0}
+.ar-content{flex:1;font-size:.79rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ar-content.empty{color:var(--text-dim);font-style:italic}
+.ar-badge{padding:2px 6px;border-radius:5px;font-size:.64rem;font-weight:600;white-space:nowrap;flex-shrink:0}
+.ar-badge.ok{background:rgba(48,201,126,.1);color:var(--planned)}
+.ar-badge.no{background:rgba(255,95,95,.1);color:var(--unplanned)}
+.ar-exc{font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.1);border-radius:4px;padding:2px 4px;flex-shrink:0}
+
+/* ── TRIMS ────────────────────────────────────────────── */
+.trims-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:11px}
+.trim-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden}
+.trim-card-hd{padding:12px 14px 8px;border-bottom:1px solid var(--border)}
+.trim-card-title{font-family:'Lora',serif;font-size:.9rem;font-weight:600}
+.trim-card-dates{font-size:.67rem;color:var(--text-muted);margin-top:2px}
+.trim-card-body{padding:10px 14px}
+.trim-stat{display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-muted);margin-bottom:3px}
+.trim-stat span:last-child{color:var(--text);font-weight:500}
+.prog-bar{height:5px;background:var(--surface3);border-radius:3px;overflow:hidden;margin:7px 0}
+.prog-fill{height:100%;border-radius:3px;transition:width .45s}
+
+/* ── DASHBOARD ────────────────────────────────────────── */
+.dashboard{background:var(--surface2);border-radius:10px;padding:13px;margin-bottom:14px;border:1px solid var(--border)}
+.dash-title{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-dim);margin-bottom:10px}
+.dash-bars{display:flex;flex-direction:column;gap:7px}
+.dash-row{display:flex;align-items:center;gap:8px}
+.dash-lbl{font-size:.7rem;color:var(--text-muted);min-width:75px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash-track{flex:1;height:7px;background:var(--surface3);border-radius:4px;overflow:hidden}
+.dash-fill{height:100%;border-radius:4px;transition:width .5s}
+.dash-pct{font-size:.68rem;font-weight:600;min-width:30px;text-align:right;flex-shrink:0}
+
+/* ── FILTER CHIPS ─────────────────────────────────────── */
+.filter-row{display:flex;gap:5px;margin-bottom:11px;flex-wrap:wrap}
+.fchip{padding:3px 10px;border-radius:14px;border:1.5px solid var(--border2);background:transparent;color:var(--text-muted);cursor:pointer;font-size:.69rem;font-family:'Outfit',sans-serif;font-weight:500;transition:all .13s}
+.fchip.active{background:var(--surface3);color:var(--text);border-color:var(--border2)}
+
+/* ── EMPTY ────────────────────────────────────────────── */
+.empty{text-align:center;padding:30px 20px;color:var(--text-dim)}
+.empty .ei{font-size:1.7rem;margin-bottom:8px}
+.empty p{font-size:.8rem;line-height:1.5}
+
+/* ── NOTICES ──────────────────────────────────────────── */
+.notice{background:rgba(91,140,255,.07);border:1px solid rgba(91,140,255,.2);border-radius:8px;padding:8px 11px;font-size:.74rem;color:var(--text-muted);margin-bottom:10px;line-height:1.5}
+.notice strong{color:var(--accent)}
+
+/* ── DRIVE ────────────────────────────────────────────── */
+.drive-pill{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:7px;font-size:.7rem;transition:all .2s;cursor:pointer}
+.drive-pill.off{background:rgba(255,95,95,.09);color:#ff8585;border:1px solid rgba(255,95,95,.2)}
+.drive-pill.on{background:rgba(48,201,126,.09);color:#3ecf8e;border:1px solid rgba(48,201,126,.2)}
+.drive-pill.sync{background:rgba(91,140,255,.09);color:#7aa8ff;border:1px solid rgba(91,140,255,.2)}
+.drive-pill.err{background:rgba(245,158,11,.09);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.drive-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.drive-dot.d-off{background:var(--unplanned)}.drive-dot.d-on{background:var(--planned)}.drive-dot.d-spin{background:var(--accent);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+.setup-step{display:flex;gap:9px;margin-bottom:12px}
+.sn{width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.sb{flex:1}.st{font-size:.82rem;font-weight:600;margin-bottom:2px}
+.sd{font-size:.74rem;color:var(--text-muted);line-height:1.5}
+.sd a{color:var(--accent)}.sd code{background:var(--surface3);padding:1px 4px;border-radius:3px;font-size:.72rem}
+
+/* ── FAB (NOVO) ───────────────────────────────────────── */
+#fab{position:fixed;bottom:24px;right:24px;z-index:150;background:var(--accent);color:#fff;border:none;border-radius:50px;padding:11px 18px;font-size:.8rem;font-weight:600;cursor:pointer;display:none;align-items:center;gap:7px;box-shadow:0 4px 22px rgba(91,140,255,.38);font-family:'Outfit',sans-serif;transition:transform .15s,box-shadow .15s}
+#fab:hover{transform:translateY(-2px);box-shadow:0 6px 28px rgba(91,140,255,.48)}
+#fab.show{display:flex}
+#fab-cnt{background:var(--warn);color:#000;border-radius:10px;padding:1px 6px;font-size:.7rem;font-weight:700}
+
+/* ── REGISTRO MODAL (NOVO) ────────────────────────────── */
+.registro-out{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:14px;font-size:.82rem;line-height:1.75;white-space:pre-wrap;min-height:120px;color:var(--text)}
+.registro-loading{display:flex;align-items:center;gap:10px;color:var(--text-muted);padding:24px;justify-content:center;font-size:.82rem}
+.spin-ring{width:18px;height:18px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .75s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+
+/* ── AULA AVALIATIVA (NOVO) ───────────────────────────── */
+.pill.avaliativa{outline:2px solid #f59e0b;outline-offset:1px}
+.pill.avaliativa .pill-name::after{content:' ★';color:#f59e0b;font-size:.65em;font-weight:800}
+.wk-pill.avaliativa{outline:2px solid #f59e0b;outline-offset:1px}
+.wk-pill.avaliativa::after{content:' ★';color:#f59e0b;font-size:.7em;font-weight:800}
+.avaliativa-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.4);border-radius:6px;padding:3px 9px;font-size:.72rem;font-weight:700;margin-left:auto}
+.avaliativa-toggle{display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:8px;border:1.5px solid var(--border2);cursor:pointer;user-select:none;transition:all .15s;margin-bottom:12px;font-size:.78rem;font-weight:500;color:var(--text-muted)}
+.avaliativa-toggle:hover{border-color:#f59e0b;color:#f59e0b;background:rgba(245,158,11,.06)}
+.avaliativa-toggle.on{border-color:#f59e0b;color:#f59e0b;background:rgba(245,158,11,.1)}
+.avaliativa-toggle .av-icon{font-size:1rem;flex-shrink:0}
+.avaliativa-toggle .av-check{width:16px;height:16px;border-radius:4px;border:2px solid currentColor;display:flex;align-items:center;justify-content:center;margin-left:auto;font-size:.7rem;transition:background .15s}
+.avaliativa-toggle.on .av-check{background:#f59e0b;border-color:#f59e0b;color:#000}
+
+/* ── PRINT ────────────────────────────────────────────── */
+@media print{
+  #sync-bar,header,aside,.overlay,.btn,.day-add,#fab{display:none!important}
+  .app-layout{display:block}main{overflow:visible}
+  .view{display:block!important;padding:0}
+  body{background:#fff;color:#000;font-size:11px}
+  .aula-row{break-inside:avoid;border:1px solid #ccc;margin-bottom:3px}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ SYNC STATUS BAR (NOVO) ═══════════════════════════ -->
+<div id="sync-bar" class="synced">
+  <div class="sb-left">
+    <div class="sb-dot" id="sb-dot"></div>
+    <span id="sb-text">Tudo sincronizado</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="sb-time" id="sb-time"></span>
+    <button class="sb-btn" onclick="syncNow()">↻ Sync</button>
+  </div>
+</div>
+
+<header>
+  <div class="logo">📚 Planejador de <span>Aulas</span></div>
+  <div class="header-tabs">
+    <button class="tab-btn" onclick="setView('calendar')">Calendário</button>
+    <button class="tab-btn active" onclick="setView('semana')">Semana</button>
+    <button class="tab-btn" onclick="setView('busca')">🔍 Busca</button>
+    <button class="tab-btn" onclick="setView('banco')">📖 Banco</button>
+    <button class="tab-btn" onclick="setView('trimestres')">Trimestres</button>
+    <button class="tab-btn" onclick="setView('relatorio')">Relatório</button>
+  </div>
+  <div class="header-right">
+    <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Tema claro/escuro">🌙</button>
+    <div class="drive-pill off" id="drive-status" onclick="handleDriveClick()">
+      <div class="drive-dot d-off" id="drive-dot"></div><span id="drive-label">Drive</span>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="exportData()">↓ Exportar</button>
+    <button class="btn btn-primary btn-sm" onclick="openTurmaModal()">+ Turma</button>
+  </div>
+</header>
+
+<div class="app-layout">
+<aside>
+  <div>
+    <div class="sidebar-section-label">Turmas</div>
+    <div id="sidebar-turmas"></div>
+  </div>
+  <div>
+    <div class="sidebar-section-label">Trimestres</div>
+    <div id="sidebar-trims"></div>
+    <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:5px" onclick="openTrimModal()">+ Trimestre</button>
+  </div>
+  <div style="margin-top:auto">
+    <div class="sidebar-section-label">Legenda</div>
+    <div class="legend">
+      <div class="legend-row"><div class="leg-dot" style="background:var(--planned)"></div>Planejada</div>
+      <div class="legend-row"><div class="leg-dot" style="background:var(--warn)"></div>📝 Rascunho</div>
+      <div class="legend-row"><div class="leg-dot" style="background:var(--unplanned)"></div>Sem plano</div>
+      <div class="legend-row"><div class="leg-dot" style="background:var(--text-dim)"></div>Passada s/ plano</div>
+      <div class="legend-row"><div class="leg-dot" style="background:var(--manha-tx)"></div>Manhã</div>
+      <div class="legend-row"><div class="leg-dot" style="background:var(--tarde-tx)"></div>Tarde</div>
+      <div class="legend-row"><div class="leg-dot" style="background:var(--noite-tx)"></div>Noite</div>
+    </div>
+  </div>
+</aside>
+
+<main>
+  <!-- CALENDÁRIO -->
+  <div class="view" id="view-calendar">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val" id="s-total" style="color:var(--accent)">0</div><div class="stat-lbl">Aulas no mês</div></div>
+      <div class="stat-card"><div class="stat-val" id="s-plan" style="color:var(--planned)">0</div><div class="stat-lbl">Planejadas</div></div>
+      <div class="stat-card"><div class="stat-val" id="s-noplan" style="color:var(--unplanned)">0</div><div class="stat-lbl">Sem plano</div></div>
+      <div class="stat-card"><div class="stat-val" id="s-pct" style="color:var(--warn)">—</div><div class="stat-lbl">% Planejado</div></div>
+    </div>
+    <div class="cal-nav">
+      <div class="cal-title" id="cal-title"></div>
+      <div class="nav-group">
+        <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+        <button class="btn btn-ghost btn-sm" onclick="goToday()">Hoje</button>
+        <button class="nav-btn" onclick="changeMonth(1)">›</button>
+      </div>
+    </div>
+    <div class="cal-weekdays">
+      <div class="cal-wd">Dom</div><div class="cal-wd">Seg</div><div class="cal-wd">Ter</div>
+      <div class="cal-wd">Qua</div><div class="cal-wd">Qui</div><div class="cal-wd">Sex</div><div class="cal-wd">Sáb</div>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+
+  <!-- SEMANA -->
+  <div class="view active" id="view-semana">
+    <div class="cal-nav">
+      <div class="cal-title" id="week-title"></div>
+      <div class="nav-group">
+        <button class="nav-btn" onclick="changeWeek(-1)">‹</button>
+        <button class="btn btn-ghost btn-sm" onclick="goTodayWeek()">Hoje</button>
+        <button class="nav-btn" onclick="changeWeek(1)">›</button>
+      </div>
+    </div>
+    <div class="week-scroll" id="week-wrap"></div>
+    <div style="font-size:.7rem;color:var(--text-dim);margin-top:7px;padding:0 2px">💡 Arraste as pílulas para reagendar aulas rapidamente</div>
+  </div>
+
+  <!-- BUSCA -->
+  <div class="view" id="view-busca">
+    <div style="font-family:'Lora',serif;font-size:1.25rem;font-weight:700;margin-bottom:13px">Busca Global</div>
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input class="search-inp" id="srch-inp" placeholder="Buscar por conteúdo, BNCC, turma..." oninput="runSearch()">
+    </div>
+    <div class="search-filters">
+      <span style="font-size:.7rem;color:var(--text-dim);flex-shrink:0">Filtrar:</span>
+      <button class="sf active" onclick="setSF('all',this)">Tudo</button>
+      <button class="sf" onclick="setSF('conteudo',this)">Conteúdo</button>
+      <button class="sf" onclick="setSF('bncc',this)">BNCC</button>
+      <button class="sf" onclick="setSF('turma',this)">Turma</button>
+    </div>
+    <div class="search-date-row">
+      <span style="font-size:.72rem;color:var(--text-dim)">Período:</span>
+      <input type="date" class="fc" id="srch-d1" style="width:145px;padding:5px 8px" onchange="runSearch()">
+      <span style="font-size:.72rem;color:var(--text-dim)">até</span>
+      <input type="date" class="fc" id="srch-d2" style="width:145px;padding:5px 8px" onchange="runSearch()">
+      <span id="srch-count" style="font-size:.72rem;color:var(--text-dim);margin-left:auto"></span>
+    </div>
+    <div id="srch-results"></div>
+  </div>
+
+  <!-- TRIMESTRES -->
+  <div class="view" id="view-trimestres">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:15px">
+      <div style="font-family:'Lora',serif;font-size:1.25rem;font-weight:700">Trimestres</div>
+      <button class="btn btn-primary btn-sm" onclick="openTrimModal()">+ Novo</button>
+    </div>
+    <div class="trims-grid" id="trims-grid"></div>
+  </div>
+
+  <!-- RELATÓRIO -->
+  <div class="view" id="view-relatorio">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;flex-wrap:wrap;gap:8px">
+      <div style="font-family:'Lora',serif;font-size:1.25rem;font-weight:700">Relatório</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <select class="fc" id="rel-turma" style="width:auto" onchange="renderRelatorio()"><option value="">Todas as turmas</option></select>
+        <select class="fc" id="rel-trim" style="width:auto" onchange="renderRelatorio()"><option value="">Todos os trimestres</option></select>
+        <label style="display:flex;align-items:center;gap:4px;font-size:.74rem;color:var(--text-muted);cursor:pointer">
+          <input type="checkbox" id="rel-drafts" onchange="renderRelatorio()" style="accent-color:var(--accent)"> Rascunhos
+        </label>
+        <button class="btn btn-ghost btn-sm" onclick="exportPDF()">⬇ PDF</button>
+      </div>
+    </div>
+    <div id="rel-content"></div>
+  </div>
+
+  <!-- TURMA DETAIL -->
+  <div class="view" id="view-turma-detail">
+    <button class="btn btn-ghost btn-sm" onclick="setView('calendar')" style="margin-bottom:12px">← Voltar</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:13px">
+      <div id="td-dot" style="width:12px;height:12px;border-radius:3px;flex-shrink:0"></div>
+      <div><div id="td-title" style="font-family:'Lora',serif;font-size:1.18rem;font-weight:700"></div><div id="td-sub" style="font-size:.74rem;color:var(--text-muted);margin-top:1px"></div></div>
+    </div>
+    <div id="td-dashboard"></div>
+    <div class="filter-row">
+      <button class="fchip active" onclick="setDF('all',this)">Todas</button>
+      <button class="fchip" onclick="setDF('upcoming',this)">Futuras</button>
+      <button class="fchip" onclick="setDF('unplanned',this)">Sem plano</button>
+      <button class="fchip" onclick="setDF('planned',this)">Planejadas</button>
+    </div>
+    <div id="td-list"></div>
+  </div>
+
+  <!-- BANCO DE AULAS -->
+  <div class="view" id="view-banco">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;flex-wrap:wrap;gap:8px">
+      <div style="font-family:'Lora',serif;font-size:1.25rem;font-weight:700">📖 Banco de Aulas</div>
+      <button class="btn btn-primary btn-sm" onclick="openBancoModal()">+ Nova Aula</button>
+    </div>
+    <!-- Filtros -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+      <input class="fc" id="banco-q" placeholder="Buscar conteúdo, BNCC, objetivo..." style="flex:1;min-width:180px;padding:5px 9px" oninput="renderBanco()">
+      <select class="fc" id="banco-ano" style="width:130px;padding:5px 8px" onchange="renderBanco()">
+        <option value="">Ano Escolar</option>
+        <option>1º ano</option><option>2º ano</option><option>3º ano</option>
+        <option>4º ano</option><option>5º ano</option><option>6º ano</option>
+        <option>7º ano</option><option>8º ano</option><option>9º ano</option>
+        <option>1º EM</option><option>2º EM</option><option>3º EM</option>
+      </select>
+      <input class="fc" id="banco-bncc" placeholder="Habilidade BNCC" style="width:145px;padding:5px 8px" oninput="renderBanco()">
+      <input class="fc" id="banco-obj" placeholder="Objetivo" style="width:160px;padding:5px 8px" oninput="renderBanco()">
+    </div>
+    <div id="banco-count" style="font-size:.72rem;color:var(--text-dim);margin-bottom:8px"></div>
+    <div id="banco-list"></div>
+  </div>
+
+</main>
+</div>
+
+<!-- MODAL TURMA -->
+<div class="overlay" id="modal-turma">
+  <div class="modal">
+    <div class="modal-hd"><div><div class="modal-title" id="mt-title">Nova Turma</div><div class="modal-sub">Configure dias e horários</div></div><button class="modal-x" onclick="closeModal('modal-turma')">✕</button></div>
+    <div class="modal-body">
+      <div class="fr"><div class="fg"><label class="fl">Turma <span class="req">*</span></label><input class="fc" id="t-nome" placeholder="CN - 202"></div><div class="fg"><label class="fl">Disciplina <span class="req">*</span></label><input class="fc" id="t-disc" placeholder="Português"></div></div>
+      <div class="fg"><label class="fl">Cor</label><div class="color-grid" id="color-grid"></div></div>
+      <div class="fg"><label class="fl">Dias com aula</label><div class="dias-grid" id="dias-grid"></div></div>
+      <div class="fg" id="hr-section" style="display:none"><label class="fl">Horários por dia</label><div id="hr-config"></div></div>
+      <div class="notice" id="t-notice" style="display:none"><strong>Atenção:</strong> alterações valem a partir de hoje.</div>
+    </div>
+    <div class="modal-ft"><div id="mt-del"></div><button class="btn btn-ghost" onclick="closeModal('modal-turma')">Cancelar</button><button class="btn btn-primary" onclick="saveTurma()">Salvar</button></div>
+  </div>
+</div>
+
+<!-- MODAL PLANO -->
+<div class="overlay" id="modal-plano">
+  <div class="modal wide">
+    <div class="modal-hd"><div><div class="modal-title" id="mp-title"></div><div class="modal-sub" id="mp-sub"></div></div><button class="modal-x" onclick="closeModal('modal-plano')">✕</button></div>
+    <div class="modal-body" id="mp-body"></div>
+    <div class="modal-ft" id="mp-ft"></div>
+  </div>
+</div>
+
+<!-- MODAL EXCEÇÃO -->
+<div class="overlay" id="modal-exc">
+  <div class="modal">
+    <div class="modal-hd"><div><div class="modal-title">Editar Horário</div><div class="modal-sub" id="me-sub"></div></div><button class="modal-x" onclick="closeModal('modal-exc')">✕</button></div>
+    <div class="modal-body">
+      <div class="notice">Cria uma <strong>exceção</strong> só para esta aula.</div>
+      <div class="fr"><div class="fg"><label class="fl">Nova data</label><input class="fc" type="date" id="me-date"></div><div class="fg"></div></div>
+      <div class="fg"><label class="fl">Turno</label><div id="me-turno"></div></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-warn btn-sm" id="me-clear" onclick="clearExc()" style="margin-right:auto;display:none">↩ Restaurar</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-exc')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveExc()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EXTRA -->
+<div class="overlay" id="modal-extra">
+  <div class="modal">
+    <div class="modal-hd"><div><div class="modal-title">Aula Extra</div><div class="modal-sub" id="mex-sub"></div></div><button class="modal-x" onclick="closeModal('modal-extra')">✕</button></div>
+    <div class="modal-body">
+      <div class="fg"><label class="fl">Turma <span class="req">*</span></label><div id="mex-turmas" style="display:flex;flex-direction:column;gap:4px;max-height:150px;overflow-y:auto"></div></div>
+      <div class="fg"><label class="fl">Períodos <span class="req">*</span></label><div id="mex-periodos"></div></div>
+    </div>
+    <div class="modal-ft"><button class="btn btn-ghost" onclick="closeModal('modal-extra')">Cancelar</button><button class="btn btn-primary" onclick="saveExtra()">Adicionar</button></div>
+  </div>
+</div>
+
+<!-- MODAL TRIMESTRE -->
+<div class="overlay" id="modal-trim">
+  <div class="modal">
+    <div class="modal-hd"><div><div class="modal-title" id="mtr-title">Novo Trimestre</div></div><button class="modal-x" onclick="closeModal('modal-trim')">✕</button></div>
+    <div class="modal-body">
+      <div class="fg"><label class="fl">Nome <span class="req">*</span></label><input class="fc" id="tr-nome" placeholder="1º Trimestre 2026"></div>
+      <div class="fr"><div class="fg"><label class="fl">Início <span class="req">*</span></label><input class="fc" type="date" id="tr-ini"></div><div class="fg"><label class="fl">Término <span class="req">*</span></label><input class="fc" type="date" id="tr-fim"></div></div>
+    </div>
+    <div class="modal-ft"><div id="mtr-del"></div><button class="btn btn-ghost" onclick="closeModal('modal-trim')">Cancelar</button><button class="btn btn-primary" onclick="saveTrim()">Salvar</button></div>
+  </div>
+</div>
+
+<!-- MODAL DRIVE SETUP -->
+<div class="overlay" id="modal-drive">
+  <div class="modal">
+    <div class="modal-hd"><div><div class="modal-title">⚙️ Google Drive</div><div class="modal-sub">Backup automático na nuvem</div></div><button class="modal-x" onclick="closeModal('modal-drive')">✕</button></div>
+    <div class="modal-body">
+      <div class="notice" style="margin-bottom:13px">Configure um projeto gratuito no Google Cloud Console.</div>
+      <div class="setup-step"><div class="sn">1</div><div class="sb"><div class="st">Acesse o Google Cloud Console</div><div class="sd"><a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a></div></div></div>
+      <div class="setup-step"><div class="sn">2</div><div class="sb"><div class="st">Ative a Google Drive API</div><div class="sd">APIs e Serviços → Biblioteca → <code>Google Drive API</code> → Ativar</div></div></div>
+      <div class="setup-step"><div class="sn">3</div><div class="sb"><div class="st">Crie credenciais OAuth</div><div class="sd">Credenciais → Criar → ID do cliente OAuth → Aplicativo da Web. Adicione a URL do seu app. Copie o Client ID.</div></div></div>
+      <div class="fg" style="margin-top:6px"><label class="fl">Client ID <span class="req">*</span></label><input class="fc" id="drive-cid" placeholder="xxxxx.apps.googleusercontent.com"></div>
+    </div>
+    <div class="modal-ft"><button class="btn btn-ghost" onclick="closeModal('modal-drive')">Cancelar</button><button class="btn btn-primary" onclick="saveDriveCfg()">Conectar</button></div>
+  </div>
+</div>
+
+<!-- MODAL DRIVE IMPORT -->
+<div class="overlay" id="modal-drive-import">
+  <div class="modal" style="max-width:390px">
+    <div class="modal-hd"><div><div class="modal-title">📂 Dados no Drive</div></div><button class="modal-x" onclick="closeModal('modal-drive-import')">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:.83rem;line-height:1.6;color:var(--text-muted)">Encontrei dados no seu Google Drive. O que prefere?</p>
+      <div style="margin-top:11px;display:flex;flex-direction:column;gap:6px">
+        <button class="btn btn-success" onclick="importFromDrive()" style="justify-content:center">⬇ Carregar do Drive</button>
+        <button class="btn btn-ghost" onclick="keepLocal()" style="justify-content:center">Manter dados locais</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL REGISTRO PEDAGÓGICO (NOVO) ═════════════════ -->
+<div class="overlay" id="modal-registro">
+  <div class="modal wide">
+    <div class="modal-hd">
+      <div><div class="modal-title">📋 Registro Pedagógico</div><div class="modal-sub" id="reg-sub"></div></div>
+      <button class="modal-x" onclick="closeModal('modal-registro')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="reg-loading" class="registro-loading" style="display:none"><div class="spin-ring"></div>Gerando registro...</div>
+      <div id="reg-output" class="registro-out"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost" onclick="copyRegistro()">📋 Copiar</button>
+      <button class="btn btn-primary" onclick="downloadRegistro()">⬇ Baixar .txt</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FAB "SALVAR TUDO" (NOVO) ═════════════════════════ -->
+<button id="fab" onclick="fabSaveAll()">
+  💾 Salvar tudo
+  <span id="fab-cnt">0</span>
+</button>
+
+<script>
+// ════════════════════════════════════════════════════════
+// CONSTANTS
+// ════════════════════════════════════════════════════════
+const COLORS=['#5b8cff','#3ecf8e','#ff6b6b','#f59e0b','#a78bfa','#fb7185','#34d399','#60a5fa','#f97316','#e879f9','#22d3ee','#a3e635','#fbbf24','#f43f5e','#8b5cf6','#10b981','#3b82f6','#ef4444','#d97706','#7c3aed','#06b6d4','#84cc16','#ec4899','#14b8a6','#6366f1'];
+const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const DIAS5=['Seg','Ter','Qua','Qui','Sex'];
+const TURNOS=[{id:'manha',label:'Manhã'},{id:'tarde',label:'Tarde'},{id:'noite',label:'Noite'}];
+const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const TODAY=(()=>{const d=new Date();d.setHours(0,0,0,0);return d})();
+const TODAY_KEY=dk(TODAY);
+const FAR_PAST=`${TODAY.getFullYear()-2}-01-01`;
+const FAR_FUTURE=`${TODAY.getFullYear()+2}-12-31`;
+
+// ════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════
+let S={turmas:[],exceptions:[],extras:[],planos:{},trimestres:{},banco:[],currentYear:TODAY.getFullYear(),currentMonth:TODAY.getMonth()};
+
+// Load — compatible with v3 and v4
+for(const k of['planner_v4','planner_v3']){
+  try{const sv=localStorage.getItem(k);if(sv){S={...S,...JSON.parse(sv)};break;}}catch(e){}
+}
+// Migrate trimestres array→object
+if(Array.isArray(S.trimestres)){const a=S.trimestres;S.trimestres={};a.forEach(t=>S.trimestres[t.id]=t);}
+
+// In-memory indices O(1)
+let _tIdx={};
+let _excIdx={};
+let _cache={};
+
+function rebuildIdx(){
+  _tIdx={};for(const t of S.turmas)_tIdx[t.id]=t;
+  _excIdx={};for(const e of S.exceptions)_excIdx[`${e.turmaId}|${e.origDate}|${e.origTurno}`]=e;
+  _cache={};
+}
+rebuildIdx();
+
+// ════════════════════════════════════════════════════════
+// SAVE — com UUID, unsynced flag e sync bar (MODIFICADO)
+// ════════════════════════════════════════════════════════
+function save(){
+  localStorage.setItem('planner_v4',JSON.stringify(S));
+  rebuildIdx();
+  updateSyncBar();
+  updateFAB();
+  if(driveReady)saveDataToDrive().catch(()=>{});
+}
+
+// Gera UUID se não existir no plano
+function ensureId(plano){
+  if(!plano.id)plano.id='_'+Math.random().toString(36).slice(2,9);
+  return plano;
+}
+
+// ════════════════════════════════════════════════════════
+// SYNC BAR — Camada 3 (NOVO)
+// ════════════════════════════════════════════════════════
+let _syncRetryTimer=null;
+
+function countUnsynced(){return Object.values(S.planos).filter(p=>p.unsynced).length;}
+
+function updateSyncBar(){
+  const bar=document.getElementById('sync-bar');
+  const dot=document.getElementById('sb-dot');
+  const txt=document.getElementById('sb-text');
+  const n=countUnsynced();
+  if(n===0){
+    bar.className='synced';dot.className='sb-dot';
+    txt.textContent='Tudo sincronizado';
+    document.getElementById('sb-time').textContent='agora';
+  }else{
+    bar.className='pending';dot.className='sb-dot';
+    txt.textContent=`${n} plano${n>1?'s':''} não sincronizado${n>1?'s':''}`;
+    document.getElementById('sb-time').textContent='';
+    // Agendar retry automático
+    if(!_syncRetryTimer)_syncRetryTimer=setTimeout(()=>{_syncRetryTimer=null;if(countUnsynced()>0)syncNow();},30000);
+  }
+}
+
+function setSyncError(msg){
+  const bar=document.getElementById('sync-bar');
+  bar.className='error';
+  document.getElementById('sb-dot').className='sb-dot';
+  document.getElementById('sb-text').textContent=msg||'Falha ao sincronizar';
+  // Retry em 30s
+  if(!_syncRetryTimer)_syncRetryTimer=setTimeout(()=>{_syncRetryTimer=null;if(countUnsynced()>0)syncNow();},30000);
+}
+
+async function syncNow(){
+  const n=countUnsynced();if(!n)return;
+  document.getElementById('sync-bar').className='pending';
+  document.getElementById('sb-dot').className='sb-dot spin';
+  document.getElementById('sb-text').textContent='Sincronizando...';
+  try{
+    if(driveReady){
+      await saveDataToDrive();
+    }
+    // Mark all synced
+    Object.values(S.planos).forEach(p=>{delete p.unsynced;});
+    localStorage.setItem('planner_v4',JSON.stringify(S));
+    updateSyncBar();updateFAB();
+    document.getElementById('sb-time').textContent=new Date().toLocaleTimeString('pt-BR');
+  }catch(e){
+    setSyncError('Erro de conexão — nova tentativa em 30s');
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// FAB — Camada 4 (NOVO)
+// ════════════════════════════════════════════════════════
+function updateFAB(){
+  const n=countUnsynced();
+  const fab=document.getElementById('fab');
+  document.getElementById('fab-cnt').textContent=n;
+  if(n>0)fab.classList.add('show');else fab.classList.remove('show');
+}
+
+async function fabSaveAll(){
+  const fab=document.getElementById('fab');
+  fab.textContent='⏳ Salvando...';
+  await syncNow();
+  fab.innerHTML='💾 Salvar tudo <span id="fab-cnt">0</span>';
+  updateFAB();
+}
+
+// ════════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════════
+function uid(){return'_'+Math.random().toString(36).slice(2,9)}
+function dk(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function dkYMD(y,m,d){return`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
+function fromDk(s){const[y,m,d]=s.split('-');return new Date(+y,+m-1,+d)}
+function fmtDate(s){if(!s)return'';const[y,m,d]=s.split('-');return`${d}/${m}/${y}`}
+function fmtShort(s){if(!s)return'';const[,m,d]=s.split('-');return`${d}/${m}`}
+function isPast(s){return s<TODAY_KEY}
+function isToday(s){return s===TODAY_KEY}
+function gt(id){return _tIdx[id]||S.turmas.find(t=>t.id===id)}
+function getTrimestres(){return Object.values(S.trimestres||{})}
+function turnoLbl(turno,periodos){
+  const t=TURNOS.find(t=>t.id===turno);if(!t)return'';
+  if(!periodos?.length)return t.label;
+  const s=[...periodos].sort((a,b)=>a-b);
+  return s.length===1?`${t.label} · ${s[0]}º per.`:`${t.label} · ${s[0]}º–${s[s.length-1]}º per.`;
+}
+function aulaKey(tId,date,turno){return`${tId}|${date}|${turno}`}
+function parseKey(k){const[turmaId,date,turno]=k.split('|');return{turmaId,date,turno}}
+
+// ════════════════════════════════════════════════════════
+// TEMA
+// ════════════════════════════════════════════════════════
+(()=>{
+  const saved=localStorage.getItem('theme');
+  const sys=window.matchMedia('(prefers-color-scheme:light)').matches?'light':'dark';
+  applyTheme(saved||sys,false);
+})();
+function applyTheme(t,save=true){
+  document.documentElement.setAttribute('data-theme',t);
+  const btn=document.getElementById('theme-btn');
+  if(btn)btn.textContent=t==='dark'?'🌙':'☀️';
+  if(save)localStorage.setItem('theme',t);
+}
+function toggleTheme(){
+  const cur=document.documentElement.getAttribute('data-theme');
+  applyTheme(cur==='dark'?'light':'dark');
+}
+
+
+// ════════════════════════════════════════════════════════
+// AULA ENGINE — memoized + O(1) lookups
+// ════════════════════════════════════════════════════════
+function getAulas(startDk,endDk){
+  const ck=`${startDk}|${endDk}`;
+  if(_cache[ck])return _cache[ck];
+  const result=[],seen=new Set();
+  const start=fromDk(startDk),end=fromDk(endDk);
+  for(const turma of S.turmas){
+    if(!turma.horarios)continue;
+    let cur=new Date(start);
+    while(cur<=end){
+      const dow=cur.getDay(),d=dk(cur);
+      const slots=turma.horarios[dow]||[];
+      const byT={};
+      for(const s of slots){if(!byT[s.turno])byT[s.turno]=[];byT[s.turno].push(s.periodo);}
+      for(const[turno,periodos] of Object.entries(byT)){
+        periodos.sort((a,b)=>a-b);
+        const exc=_excIdx[`${turma.id}|${d}|${turno}`];
+        let fd=d,ft=turno,isExc=false;
+        if(exc){fd=exc.newDate;ft=exc.newTurno;isExc=true;if(fd<startDk||fd>endDk){cur.setDate(cur.getDate()+1);continue;}}
+        const key=aulaKey(turma.id,fd,ft);
+        if(seen.has(key)){cur.setDate(cur.getDate()+1);continue;}
+        seen.add(key);
+        result.push({turmaId:turma.id,date:fd,turno:ft,periodos,origDate:d,origTurno:turno,isException:isExc,isExtra:false,plano:S.planos[key]||null,key});
+      }
+      cur.setDate(cur.getDate()+1);
+    }
+  }
+  for(const ex of S.extras){
+    if(ex.date>=startDk&&ex.date<=endDk){
+      const key=aulaKey(ex.turmaId,ex.date,ex.turno);
+      if(!seen.has(key)){seen.add(key);result.push({turmaId:ex.turmaId,date:ex.date,turno:ex.turno,periodos:ex.periodos||[],origDate:ex.date,origTurno:ex.turno,isException:false,isExtra:true,extraId:ex.id,plano:S.planos[key]||null,key});}
+    }
+  }
+  _cache[ck]=result;
+  return result;
+}
+
+// ════════════════════════════════════════════════════════
+// VIEW SWITCHING
+// ════════════════════════════════════════════════════════
+let currentView='semana';
+function setView(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v)?.classList.add('active');
+  currentView=v;
+  const m={calendar:0,semana:1,busca:2,banco:3,trimestres:4,relatorio:5};
+  if(m[v]!==undefined)document.querySelectorAll('.tab-btn')[m[v]].classList.add('active');
+  if(v==='semana')renderWeek();
+  else if(v==='busca')runSearch();
+  else if(v==='trimestres')renderTrims();
+  else if(v==='relatorio')renderRelatorio();
+  else if(v==='banco')renderBanco();
+}
+
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+document.querySelectorAll('.overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open')}));
+
+// ════════════════════════════════════════════════════════
+// SIDEBAR — grouped by disciplina
+// ════════════════════════════════════════════════════════
+let openDiscs={};
+function toggleDisc(d){openDiscs[d]=!openDiscs[d];renderSidebar();}
+
+function renderSidebar(){
+  const byD={};
+  for(const t of S.turmas){if(!byD[t.disciplina])byD[t.disciplina]=[];byD[t.disciplina].push(t);}
+  const discNames=Object.keys(byD).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const tlist=document.getElementById('sidebar-turmas');
+  tlist.innerHTML=!S.turmas.length?'<div style="font-size:.72rem;color:var(--text-dim);padding:4px">Nenhuma turma</div>':
+    discNames.map(disc=>{
+      const ts=byD[disc].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR',{numeric:true}));
+      const isOpen=openDiscs[disc]!==false;
+      const sd=disc.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return`<div class="disc-group">
+        <div class="disc-header ${isOpen?'open':''}" onclick="toggleDisc('${sd}')">
+          <span class="disc-chevron">▶</span><span class="disc-name">${disc}</span><span class="disc-badge">${ts.length}</span>
+        </div>
+        <div class="disc-turmas ${isOpen?'open':''}">
+          ${ts.map(t=>`<div class="turma-item">
+            <div class="t-dot" style="background:${t.color}"></div>
+            <div class="turma-info" onclick="openTurmaDetail('${t.id}')"><div class="turma-name">${t.nome}</div></div>
+            <div class="turma-actions">
+              <button class="btn-icon" onclick="openTurmaModal('${t.id}')" title="Editar">✏️</button>
+              <button class="btn-icon" onclick="removeTurma('${t.id}')" title="Remover">🗑</button>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  const trlist=document.getElementById('sidebar-trims');
+  trlist.innerHTML=getTrimestres().map(tr=>`<div class="trim-item" onclick="openTrimModal('${tr.id}')">
+    <div class="trim-item-name">${tr.nome}</div>
+    <div class="trim-item-dates">${fmtDate(tr.inicio)} → ${fmtDate(tr.fim)}</div>
+  </div>`).join('')||'<div style="font-size:.72rem;color:var(--text-dim);padding:4px">Nenhum trimestre</div>';
+  const rt=document.getElementById('rel-turma'),rtr=document.getElementById('rel-trim');
+  if(rt){const cv=rt.value;rt.innerHTML='<option value="">Todas as turmas</option>'+S.turmas.map(t=>`<option value="${t.id}">${t.nome} — ${t.disciplina}</option>`).join('');rt.value=cv;}
+  if(rtr){const cv=rtr.value;rtr.innerHTML='<option value="">Todos os trimestres</option>'+getTrimestres().map(tr=>`<option value="${tr.id}">${tr.nome}</option>`).join('');rtr.value=cv;}
+}
+
+// ════════════════════════════════════════════════════════
+// CALENDAR
+// ════════════════════════════════════════════════════════
+function renderCalendar(){
+  const{currentYear:y,currentMonth:m}=S;
+  document.getElementById('cal-title').textContent=`${MESES[m]} ${y}`;
+  const fd=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate(),prev=new Date(y,m,0).getDate();
+  const ms=dkYMD(y,m,1),me=dkYMD(y,m,dim);
+  const aulas=getAulas(ms,me);
+  const byDate={};for(const a of aulas){if(!byDate[a.date])byDate[a.date]=[];byDate[a.date].push(a);}
+  const inTrim=d=>getTrimestres().some(tr=>d>=tr.inicio&&d<=tr.fim);
+  const frag=document.createDocumentFragment();
+  for(let i=fd-1;i>=0;i--){const c=document.createElement('div');c.className='cal-day other';c.innerHTML=`<div class="day-hd"><div class="day-num">${prev-i}</div></div>`;frag.appendChild(c);}
+  let mt=0,mp=0;
+  for(let day=1;day<=dim;day++){
+    const d=dkYMD(y,m,day),past=isPast(d),tod=isToday(d),trim=inTrim(d);
+    const dayA=(byDate[d]||[]).sort((a,b)=>TURNOS.findIndex(t=>t.id===a.turno)-TURNOS.findIndex(t=>t.id===b.turno));
+    mt+=dayA.length;mp+=dayA.filter(a=>a.plano?.conteudo&&a.plano?.status==='published').length;
+    const byT={};for(const a of dayA){if(!byT[a.turno])byT[a.turno]=[];byT[a.turno].push(a);}
+    let tHTML='';
+    for(const tn of TURNOS){
+      const arr=byT[tn.id];if(!arr?.length)continue;
+      let pills='';
+      arr.sort((a,b)=>(a.periodos?.[0]||0)-(b.periodos?.[0]||0));
+      for(const a of arr){
+        const turma=gt(a.turmaId);if(!turma)continue;
+        const pl=!!a.plano?.conteudo;
+        const isDraft=a.plano&&(!a.plano.status||a.plano.status==='draft');
+        const isPublished=a.plano?.status==='published';
+        let cls=isPublished?'planned':(isDraft?'draft':(past?'faded':'unplanned'));
+        if(a.isException)cls+=' exc';if(a.plano?.sharedGroupId)cls+=' shared';if(a.plano?.avaliativa)cls+=' avaliativa';
+        const pr=a.periodos?.length>1?`${a.periodos[0]}°-${a.periodos[a.periodos.length-1]}°`:`${a.periodos?.[0]||''}°`;
+        const draftDot=isDraft?'<span class="pill-draft-dot" title="Rascunho"></span>':'';
+        const unsyncDot=a.plano?.unsynced&&!isDraft?'<span style="width:5px;height:5px;border-radius:50%;background:var(--warn);flex-shrink:0" title="Não sincronizado"></span>':'';
+        pills+=`<div class="pill ${cls}" onclick="openPlano('${a.key}')" ondblclick="openExcModal('${a.key}',event)" title="${turma.nome}\n${turnoLbl(a.turno,a.periodos)}${isDraft?' (Rascunho)':''}">
+          <div class="dot" style="background:${turma.color}"></div>${draftDot}${unsyncDot}<span class="pill-name">${pr} ${turma.nome}</span>
+        </div>`;
+      }
+      tHTML+=`<div class="turno-blk ${tn.id}"><div class="turno-lbl ${tn.id}">${tn.label}</div>${pills}</div>`;
+    }
+    const c=document.createElement('div');
+    c.className='cal-day'+(tod?' today':'')+(trim?' in-trim':'')+(past&&!tod?' past':'');
+    c.innerHTML=`<div class="day-hd"><div class="day-num">${day}</div><button class="day-add" onclick="openExtraModal('${d}')">+</button></div>${tHTML}`;
+    frag.appendChild(c);
+  }
+  const rem=(fd+dim)%7;
+  for(let i=1;i<=(rem?7-rem:0);i++){const c=document.createElement('div');c.className='cal-day other';c.innerHTML=`<div class="day-hd"><div class="day-num">${i}</div></div>`;frag.appendChild(c);}
+  const g=document.getElementById('cal-grid');g.innerHTML='';g.appendChild(frag);
+  document.getElementById('s-total').textContent=mt;
+  document.getElementById('s-plan').textContent=mp;
+  document.getElementById('s-noplan').textContent=mt-mp;
+  document.getElementById('s-pct').textContent=mt?Math.round(mp/mt*100)+'%':'—';
+}
+
+function changeMonth(d){S.currentMonth+=d;if(S.currentMonth>11){S.currentMonth=0;S.currentYear++;}if(S.currentMonth<0){S.currentMonth=11;S.currentYear--;}render();}
+function goToday(){S.currentYear=TODAY.getFullYear();S.currentMonth=TODAY.getMonth();render();}
+
+// ════════════════════════════════════════════════════════
+// WEEK VIEW
+// ════════════════════════════════════════════════════════
+let weekOffset=0,dragKey=null;
+function getWeekStart(off=0){const d=new Date(TODAY),dow=d.getDay();d.setDate(d.getDate()+(dow===0?-6:1-dow)+off*7);d.setHours(0,0,0,0);return d;}
+function changeWeek(d){weekOffset+=d;renderWeek();}
+function goTodayWeek(){weekOffset=0;renderWeek();}
+
+function renderWeek(){
+  const ws=getWeekStart(weekOffset);
+  const days=Array.from({length:5},(_,i)=>{const d=new Date(ws);d.setDate(d.getDate()+i);return d;});
+  const s=dk(days[0]),e=dk(days[4]);
+  document.getElementById('week-title').textContent=`${fmtShort(s)} – ${fmtShort(e)} ${days[0].getFullYear()}`;
+  const aulas=getAulas(s,e);
+  const tPresent=new Set(),pPresent=new Set();
+  for(const a of aulas){tPresent.add(a.turno);for(const p of(a.periodos||[]))pPresent.add(`${a.turno}|${p}`);}
+  const rows=[];let lastT=null;
+  for(const tn of TURNOS){
+    if(!tPresent.has(tn.id))continue;
+    const ps=[1,2,3,4,5,6].filter(p=>pPresent.has(`${tn.id}|${p}`));
+    for(const p of ps){rows.push({turno:tn.id,tLabel:tn.label,periodo:p,firstOfTurno:lastT!==tn.id});lastT=tn.id;}
+  }
+  if(!rows.length){document.getElementById('week-wrap').innerHTML='<div class="empty"><div class="ei">📅</div><p>Nenhuma aula nesta semana.</p></div>';return;}
+  const idx={};
+  for(const a of aulas)for(const p of(a.periodos||[])){const k=`${a.date}|${a.turno}|${p}`;if(!idx[k])idx[k]=[];idx[k].push(a);}
+  let html=`<div class="week-grid">`;
+  html+=`<div class="wk-hd"></div>`;
+  days.forEach((d,i)=>{
+    const ddk=dk(d),tod=isToday(ddk);
+    html+=`<div class="wk-hd"><div class="wk-day-name">${DIAS5[i]}</div><div class="wk-day-dt ${tod?'today-dt':''}">${d.getDate()}/${d.getMonth()+1}</div></div>`;
+  });
+  rows.forEach((row,ri)=>{
+    const isLast=ri===rows.length-1;
+    const sep=row.firstOfTurno&&ri>0?` wk-section-sep ${row.turno}`:'';
+    html+=`<div class="wk-per-lbl${sep}" style="${isLast?'border-bottom:none':''}">
+      <div class="wk-per-num">${row.periodo}º</div>
+      <div class="wk-turno-badge ${row.turno}">${row.tLabel.slice(0,3).toUpperCase()}</div>
+    </div>`;
+    days.forEach(d=>{
+      const ddk=dk(d),past=isPast(ddk),tod=isToday(ddk);
+      const k=`${ddk}|${row.turno}|${row.periodo}`;
+      const cellA=idx[k]||[];
+      let content='';
+      for(const a of cellA){
+        const turma=gt(a.turmaId);if(!turma)continue;
+        const pl=!!a.plano?.conteudo;
+        const isDraft=a.plano&&(!a.plano.status||a.plano.status==='draft');
+        const isPublished=a.plano?.status==='published';
+        let cls=isPublished?'planned':(isDraft?'draft':(past?'faded':'unplanned'));
+        if(a.plano?.avaliativa)cls+=' avaliativa';
+        const label=`${isDraft?'📝 ':''}${a.plano?.avaliativa?'★ ':''}${turma.nome}${a.plano?.conteudo?' — '+a.plano.conteudo.split('\n')[0].slice(0,28):''}`;
+        content+=`<div class="wk-pill ${cls}" draggable="true" ondragstart="dragKey='${a.key}'" onclick="openPlano('${a.key}')"
+          style="border-left-color:${turma.color}" title="${turma.nome}${isDraft?' (Rascunho)':''}">${label}</div>`;
+      }
+      html+=`<div class="wk-cell ${tod?'today-col':''} ${past?'past-col':''}"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="dropToCell('${ddk}','${row.turno}',${row.periodo},this)">${content}</div>`;
+    });
+  });
+  html+=`</div>`;
+  document.getElementById('week-wrap').innerHTML=html;
+}
+
+function dropToCell(newDate,newTurno,newPer,el){
+  el.classList.remove('drag-over');
+  if(!dragKey)return;
+  const{turmaId,date:od,turno:ot}=parseKey(dragKey);
+  if(isPast(od)){alert('Aulas passadas não podem ser movidas.');dragKey=null;return;}
+  S.exceptions=S.exceptions.filter(e=>!(e.turmaId===turmaId&&e.origDate===od&&e.origTurno===ot));
+  if(newDate!==od||newTurno!==ot){
+    S.exceptions.push({turmaId,origDate:od,origTurno:ot,newDate,newTurno});
+    const ok=aulaKey(turmaId,od,ot),nk=aulaKey(turmaId,newDate,newTurno);
+    if(S.planos[ok]){S.planos[nk]=S.planos[ok];delete S.planos[ok];}
+  }
+  dragKey=null;save();renderWeek();
+}
+
+// ════════════════════════════════════════════════════════
+// TURMA MODAL
+// ════════════════════════════════════════════════════════
+let editTId=null,selColor=COLORS[0],selDias=[],hrDraft={};
+function openTurmaModal(id=null){
+  editTId=id;const t=id?gt(id):null;
+  document.getElementById('mt-title').textContent=t?'Editar Turma':'Nova Turma';
+  document.getElementById('t-nome').value=t?.nome||'';
+  document.getElementById('t-disc').value=t?.disciplina||'';
+  selColor=t?.color||COLORS[Math.floor(Math.random()*COLORS.length)];
+  selDias=t?Object.keys(t.horarios||{}).map(Number):[];
+  hrDraft=t?JSON.parse(JSON.stringify(t.horarios||{})):{};
+  document.getElementById('mt-del').innerHTML=t?`<button class="btn btn-danger btn-sm" onclick="removeTurma('${id}');closeModal('modal-turma')">🗑 Remover</button>`:'';
+  document.getElementById('t-notice').style.display=t?'block':'none';
+  buildColorGrid();buildDiasGrid();buildHrConfig();
+  openModal('modal-turma');
+}
+function buildColorGrid(){document.getElementById('color-grid').innerHTML=COLORS.map(c=>`<div class="cswatch ${c===selColor?'sel':''}" style="background:${c}" onclick="pickColor('${c}')"></div>`).join('');}
+function pickColor(c){selColor=c;buildColorGrid();}
+function buildDiasGrid(){document.getElementById('dias-grid').innerHTML=DIAS.map((d,i)=>`<button class="dia-btn ${selDias.includes(i)?'sel':''}" onclick="toggleDia(${i})" style="${selDias.includes(i)?`border-color:${selColor};color:${selColor};background:${selColor}18`:''}">${d}</button>`).join('');}
+function toggleDia(i){if(selDias.includes(i)){selDias=selDias.filter(d=>d!==i);delete hrDraft[i];}else{selDias.push(i);if(!hrDraft[i])hrDraft[i]=[];}buildDiasGrid();buildHrConfig();}
+function buildHrConfig(){
+  const sec=document.getElementById('hr-section'),cont=document.getElementById('hr-config');
+  if(!selDias.length){sec.style.display='none';return;}sec.style.display='block';
+  cont.innerHTML=[...selDias].sort((a,b)=>a-b).map(dow=>`<div class="hr-row"><div class="hr-day-lbl">${DIAS[dow]}</div>
+    <div class="turno-sel">${TURNOS.map(tn=>`<div class="turno-row"><div class="turno-nm">${tn.label}</div>
+      <div class="per-row" id="pr-${dow}-${tn.id}">${[1,2,3,4,5,6].map(p=>{const s=(hrDraft[dow]||[]).some(x=>x.turno===tn.id&&x.periodo===p);return`<button class="pp ${s?'sel':''}" onclick="togglePer(${dow},'${tn.id}',${p})">${p}º</button>`;}).join('')}</div>
+    </div>`).join('')}</div></div>`).join('');
+}
+function togglePer(dow,tId,p){
+  if(!hrDraft[dow])hrDraft[dow]=[];
+  const idx=hrDraft[dow].findIndex(s=>s.turno===tId&&s.periodo===p);
+  if(idx>=0)hrDraft[dow].splice(idx,1);else hrDraft[dow].push({turno:tId,periodo:p});
+  const row=document.getElementById(`pr-${dow}-${tId}`);
+  if(row)row.querySelectorAll('.pp').forEach((b,i)=>b.classList.toggle('sel',(hrDraft[dow]||[]).some(x=>x.turno===tId&&x.periodo===i+1)));
+}
+function saveTurma(){
+  const nome=document.getElementById('t-nome').value.trim(),disc=document.getElementById('t-disc').value.trim();
+  if(!nome||!disc){alert('Preencha nome e disciplina.');return;}
+  if(editTId){const t=gt(editTId);t.nome=nome;t.disciplina=disc;t.color=selColor;t.horarios=JSON.parse(JSON.stringify(hrDraft));}
+  else S.turmas.push({id:uid(),nome,disciplina:disc,color:selColor,horarios:JSON.parse(JSON.stringify(hrDraft))});
+  save();closeModal('modal-turma');render();
+}
+function removeTurma(id){
+  if(!confirm('Remover turma?'))return;
+  S.turmas=S.turmas.filter(t=>t.id!==id);
+  S.exceptions=S.exceptions.filter(e=>e.turmaId!==id);
+  S.extras=S.extras.filter(e=>e.turmaId!==id);
+  save();render();
+}
+
+// ════════════════════════════════════════════════════════
+// PLANO DE AULA — com status draft/published (MODIFICADO)
+// ════════════════════════════════════════════════════════
+let curKey=null;
+
+function openPlano(key){
+  curKey=key;
+  const{turmaId,date,turno}=parseKey(key);
+  const turma=gt(turmaId),plano=S.planos[key]||null,past=isPast(date);
+  const aula=getAulas(date,date).find(a=>a.key===key);
+  document.getElementById('mp-title').textContent=`${turma?.nome} — ${turma?.disciplina}`;
+  document.getElementById('mp-sub').textContent=`${fmtDate(date)} · ${turnoLbl(turno,aula?.periodos||[])}${past?' (passada)':''}`;
+  if(plano?.conteudo)renderViewPlano(plano,past);else renderEditPlano(plano);
+  openModal('modal-plano');
+}
+
+function renderViewPlano(p,past){
+  const codes=(p.bnccCodes||[p.bncc].filter(Boolean)).map(c=>`<span class="bncc-code">${c}</span>`).join('');
+  const isDraft=!p.status||p.status==='draft';
+  const statusBadge=`<div class="status-row">
+    <span style="font-size:.7rem;color:var(--text-muted)">Status:</span>
+    <span class="status-pill ${isDraft?'draft':'published'}">${isDraft?'📝 Rascunho':'✅ Publicado'}</span>
+    ${p.avaliativa?'<span class="avaliativa-badge">★ Avaliativa</span>':''}
+    ${p.unsynced?'<span class="status-unsync">● Não sincronizado</span>':''}
+  </div>`;
+  document.getElementById('mp-body').innerHTML=`${statusBadge}
+    <div class="plan-blk"><div class="plan-lbl">Habilidades BNCC</div>
+      <div class="plan-val">${codes||'—'}${p.bnccDesc?`<div style="color:var(--text-muted);font-size:.8rem;margin-top:5px">${p.bnccDesc}</div>`:''}</div>
+    </div>
+    ${p.objetivo?`<div class="plan-blk"><div class="plan-lbl">Objetivo da Aula</div><div class="plan-val">${p.objetivo}</div></div>`:''}
+    <div class="plan-blk"><div class="plan-lbl">Conteúdo</div><div class="plan-val">${p.conteudo||'—'}</div></div>
+    <div class="plan-blk"><div class="plan-lbl">Dinâmica / Metodologia</div><div class="plan-val">${p.dinamica||'—'}</div></div>
+    ${p.material?`<div class="plan-blk"><div class="plan-lbl">Material Utilizado</div><div class="plan-val">${p.material}</div></div>`:''}
+    <div class="plan-blk"><div class="plan-lbl">Avaliação</div><div class="plan-val">${p.avaliacao||'—'}</div></div>
+    ${p.obs?`<div class="plan-blk"><div class="plan-lbl">Observações</div><div class="plan-val">${p.obs}</div></div>`:''}
+    ${p.sharedGroupId?`<div style="font-size:.7rem;color:var(--accent);margin-top:6px">🔗 Plano compartilhado</div>`:''}`;
+  document.getElementById('mp-ft').innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal('modal-plano')">Fechar</button>
+    <button class="btn btn-warn btn-sm" onclick="gerarRegistro()">📋 Registro</button>
+    <button class="btn btn-warn btn-sm" onclick="openExportPlano()">⬇ Exportar</button>
+    <button class="btn btn-warn btn-sm" onclick="duplicatePlano()">📋 Duplicar/Aplicar</button>
+    ${!past?`<button class="btn btn-success" onclick="renderEditPlano()">✏ Editar</button>`:''}`;
+}
+
+function duplicatePlano(){closeModal('modal-plano');renderEditPlano(S.planos[curKey]);openModal('modal-plano');}
+
+// BNCC
+function getBnccCodes(){return[...document.querySelectorAll('#bncc-wrap .bncc-tag')].map(el=>el.textContent.replace('×','').trim()).filter(Boolean);}
+function handleBnccKey(e){if(e.key==='Enter'||e.key===','){e.preventDefault();const v=e.target.value.trim().replace(',','');if(v){addBnccTag(v);e.target.value='';}}}
+function addBnccTag(code){const wrap=document.getElementById('bncc-wrap'),inp=document.getElementById('bncc-inp');const tag=document.createElement('span');tag.className='bncc-tag';tag.innerHTML=`${code}<button class="bncc-del" onclick="this.parentElement.remove()">×</button>`;wrap.insertBefore(tag,inp);}
+
+// SHARE
+let shareSelTurma=null,shareSelDays=new Set(),shareCalOff=0;
+const selShares=new Set();
+
+function renderEditPlano(p){
+  p=p||S.planos[curKey]||{};
+  const codes=p.bnccCodes||(p.bncc?[p.bncc]:[]);
+  const isDraft=!p.status||p.status==='draft';
+  selShares.clear();shareSelTurma=null;shareSelDays=new Set();shareCalOff=0;
+  document.getElementById('mp-body').innerHTML=`
+    <div class="status-row">
+      <span style="font-size:.7rem;color:var(--text-muted)">Status atual:</span>
+      <span class="status-pill ${isDraft?'draft':'published'}">${isDraft?'📝 Rascunho':'✅ Publicado'}</span>
+      ${p.unsynced?'<span class="status-unsync">● Não sincronizado</span>':''}
+    </div>
+    <div class="fg"><label class="fl">Habilidades BNCC <span style="font-weight:400;color:var(--text-dim);font-size:.68rem">(Enter para adicionar)</span></label>
+      <div class="bncc-wrap" id="bncc-wrap" onclick="document.getElementById('bncc-inp').focus()">
+        ${codes.map(c=>`<span class="bncc-tag">${c}<button class="bncc-del" onclick="this.parentElement.remove()">×</button></span>`).join('')}
+        <input class="bncc-inp" id="bncc-inp" placeholder="${codes.length?'':'EM13LP01'}" onkeydown="handleBnccKey(event)">
+      </div>
+      <textarea class="fc" id="fp-bdesc" rows="2" placeholder="Descrição das habilidades..." style="margin-top:5px">${p.bnccDesc||''}</textarea>
+    </div>
+    <div class="fg"><label class="fl">Objetivo da Aula</label><textarea class="fc" id="fp-obj" rows="2" placeholder="O que os alunos devem aprender/alcançar?">${p.objetivo||''}</textarea></div>
+    <div class="fg"><label class="fl">Conteúdo <span class="req">*</span></label><textarea class="fc" id="fp-cont" rows="3" placeholder="O que será trabalhado?">${p.conteudo||''}</textarea></div>
+    <div class="fg"><label class="fl">Dinâmica / Metodologia</label><textarea class="fc" id="fp-din" rows="6" placeholder="Como a aula será conduzida?">${p.dinamica||''}</textarea></div>
+    <div class="fg"><label class="fl">Material Utilizado</label><textarea class="fc" id="fp-mat" rows="6" placeholder="Materiais, recursos, links, anexos...">${p.material||''}</textarea></div>
+    <div class="fg"><label class="fl">Avaliação / Instrumentos</label><textarea class="fc" id="fp-aval" rows="2" placeholder="Como os alunos serão avaliados?">${p.avaliacao||''}</textarea></div>
+    <div class="fg"><label class="fl">Observações</label><textarea class="fc" id="fp-obs" rows="2">${p.obs||''}</textarea></div>
+    <div class="avaliativa-toggle ${p.avaliativa?'on':''}" id="av-toggle" onclick="toggleAvaliativa()">
+      <span class="av-icon">★</span>
+      <div><div style="font-size:.78rem;font-weight:600">Aula Avaliativa</div><div style="font-size:.68rem;opacity:.75">Instrumento formal com nota</div></div>
+      <div class="av-check">${p.avaliativa?'✓':''}</div>
+    </div>
+    <hr style="border-color:var(--border);margin:13px 0">
+    <div class="fl" style="margin-bottom:8px">📋 Aplicar também a outras turmas/dias</div>
+    <div class="share-box">
+      <div class="share-step">
+        <div class="share-step-lbl">1. Selecione a turma</div>
+        <div class="turma-chips">${S.turmas.filter(t=>aulaKey(t.id,'x','y')!==curKey).map(t=>`
+          <div class="turma-chip" data-id="${t.id}" onclick="pickShareTurma('${t.id}')">
+            <div style="width:6px;height:6px;border-radius:2px;background:${t.color}"></div>${t.nome}
+          </div>`).join('')}</div>
+      </div>
+      <div class="share-step" id="share-cal" style="display:none">
+        <div class="share-step-lbl">2. Selecione os dias</div>
+        <div id="share-mc"></div>
+        <div class="mc-sel-count" id="share-count-lbl"></div>
+      </div>
+    </div>`;
+  // Footer com os 2 botões novos: Salvar rascunho + Publicar
+  document.getElementById('mp-ft').innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal('modal-plano')">Cancelar</button>
+    <button class="btn btn-warn" onclick="savePlanoAs('draft')">📝 Salvar rascunho</button>
+    <button class="btn btn-primary" onclick="savePlanoAs('published')">✅ Publicar aula</button>`;
+}
+
+function toggleAvaliativa(){
+  const el=document.getElementById('av-toggle');if(!el)return;
+  const on=el.classList.toggle('on');
+  el.querySelector('.av-check').textContent=on?'✓':'';
+}
+
+function pickShareTurma(id){
+  shareSelTurma=id;shareSelDays=new Set();selShares.clear();shareCalOff=0;
+  document.querySelectorAll('.turma-chip').forEach(el=>el.classList.toggle('sel',el.dataset.id===id));
+  document.getElementById('share-cal').style.display='block';
+  renderShareMC();
+}
+function renderShareMC(){
+  const mc=document.getElementById('share-mc');if(!mc)return;
+  const today=TODAY,base=new Date(today.getFullYear(),today.getMonth()+shareCalOff,1);
+  const y=base.getFullYear(),m=base.getMonth();
+  const s=dkYMD(y,m,1),e=dkYMD(y,m,new Date(y,m+1,0).getDate());
+  const aulaDates=new Set(shareSelTurma?getAulas(s,e).filter(a=>a.turmaId===shareSelTurma&&a.key!==curKey).map(a=>a.date):[]);
+  const fd=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate();
+  let html=`<div class="mc-nav">
+    <button class="mc-nav-btn" onclick="shareCalOff--;renderShareMC()">‹</button>
+    <div class="mc-nav-title">${MESES[m]} ${y}</div>
+    <button class="mc-nav-btn" onclick="shareCalOff++;renderShareMC()">›</button>
+  </div><div class="mc-grid">
+    ${['D','S','T','Q','Q','S','S'].map(d=>`<div class="mc-hd">${d}</div>`).join('')}
+    ${Array(fd).fill('<div class="mc-day other"></div>').join('')}
+    ${Array.from({length:dim},(_,i)=>{
+      const day=i+1,ddk=dkYMD(y,m,day);
+      const has=aulaDates.has(ddk),isSel=shareSelDays.has(ddk);
+      return`<div class="mc-day ${has?'has':''} ${isSel?'sel':''}" onclick="${has?`toggleShareDay('${ddk}')`:''}">${day}</div>`;
+    }).join('')}
+  </div>`;
+  mc.innerHTML=html;
+  const cnt=shareSelDays.size;
+  document.getElementById('share-count-lbl').textContent=cnt?`${cnt} dia${cnt>1?'s':''} selecionado${cnt>1?'s':''}` :'';
+}
+function toggleShareDay(ddk){
+  if(shareSelDays.has(ddk))shareSelDays.delete(ddk);else shareSelDays.add(ddk);
+  selShares.clear();
+  if(shareSelTurma){
+    const allA=getAulas(FAR_PAST,FAR_FUTURE).filter(a=>a.turmaId===shareSelTurma&&a.key!==curKey);
+    for(const a of allA)if(shareSelDays.has(a.date))selShares.add(a.key);
+  }
+  renderShareMC();
+}
+
+// SAVE com status (MODIFICADO)
+function savePlanoAs(status){
+  const conteudo=document.getElementById('fp-cont')?.value.trim();
+  if(!conteudo){alert('Informe o conteúdo da aula.');return;}
+  const codes=getBnccCodes();
+  const existing=S.planos[curKey]||{};
+  const planoData={
+    id:existing.id||uid(),  // UUID — Camada 4
+    bnccCodes:codes,bncc:codes[0]||'',
+    bnccDesc:document.getElementById('fp-bdesc').value.trim(),
+    objetivo:document.getElementById('fp-obj')?.value.trim()||'',
+    conteudo,
+    dinamica:document.getElementById('fp-din').value.trim(),
+    material:document.getElementById('fp-mat')?.value.trim()||'',
+    avaliacao:document.getElementById('fp-aval').value.trim(),
+    obs:document.getElementById('fp-obs').value.trim(),
+    avaliativa:document.getElementById('av-toggle')?.classList.contains('on')||false,
+    status,  // 'draft' | 'published'
+    unsynced:true,  // Camada 1
+    updatedAt:new Date().toISOString()
+  };
+  S.planos[curKey]={...planoData};
+  if(selShares.size){
+    const gid=uid();
+    S.planos[curKey].sharedGroupId=gid;
+    for(const k of selShares)S.planos[k]={...planoData,id:uid(),sharedGroupId:gid};
+    selShares.clear();
+  }
+  save();closeModal('modal-plano');render();
+  if(currentView==='turma-detail')renderTurmaDetail();
+  if(currentView==='relatorio')renderRelatorio();
+}
+
+// Compat: savePlano antigo agora chama draft
+function savePlano(){savePlanoAs('draft');}
+
+// ════════════════════════════════════════════════════════
+// EXCEÇÃO
+// ════════════════════════════════════════════════════════
+let excKey=null,excTurno=null;
+function openExcModal(key,e){
+  e.stopPropagation();
+  const{turmaId,date,turno}=parseKey(key);
+  if(isPast(date)){alert('Aulas passadas não podem ser alteradas.');return;}
+  excKey=key;excTurno=turno;
+  const turma=gt(turmaId),aula=getAulas(date,date).find(a=>a.key===key);
+  document.getElementById('me-sub').textContent=`${turma?.nome} — ${fmtDate(date)} · ${turnoLbl(turno,aula?.periodos||[])}`;
+  document.getElementById('me-date').value=date;
+  const exc=_excIdx[`${turmaId}|${date}|${turno}`];
+  document.getElementById('me-clear').style.display=exc?'inline-flex':'none';
+  document.getElementById('me-turno').innerHTML=TURNOS.map(tn=>`
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <button class="pp ${turno===tn.id?'sel':''}" id="mep-${tn.id}" onclick="selExcTurno('${tn.id}')" style="padding:4px 12px">${tn.label}</button>
+    </div>`).join('');
+  openModal('modal-exc');
+}
+function selExcTurno(t){document.querySelectorAll('#me-turno .pp').forEach(b=>b.classList.remove('sel'));document.getElementById(`mep-${t}`)?.classList.add('sel');excTurno=t;}
+function saveExc(){
+  const{turmaId,date:od,turno:ot}=parseKey(excKey);
+  const nd=document.getElementById('me-date').value;
+  if(!nd||!excTurno){alert('Selecione data e turno.');return;}
+  if(isPast(nd)){alert('Não é possível mover para data passada.');return;}
+  S.exceptions=S.exceptions.filter(e=>!(e.turmaId===turmaId&&e.origDate===od&&e.origTurno===ot));
+  if(nd!==od||excTurno!==ot){
+    S.exceptions.push({turmaId,origDate:od,origTurno:ot,newDate:nd,newTurno:excTurno});
+    const ok=aulaKey(turmaId,od,ot),nk=aulaKey(turmaId,nd,excTurno);
+    if(S.planos[ok]){S.planos[nk]=S.planos[ok];delete S.planos[ok];}
+  }
+  save();closeModal('modal-exc');render();
+}
+function clearExc(){
+  const{turmaId,date,turno}=parseKey(excKey);
+  S.exceptions=S.exceptions.filter(e=>!(e.turmaId===turmaId&&e.origDate===date&&e.origTurno===turno));
+  save();closeModal('modal-exc');render();
+}
+
+// ════════════════════════════════════════════════════════
+// AULAS EXTRAS
+// ════════════════════════════════════════════════════════
+let exDate=null,exTurma=null,exPer={};
+function openExtraModal(ddk){
+  if(!S.turmas.length){alert('Cadastre uma turma primeiro!');return;}
+  exDate=ddk;exTurma=null;exPer={};
+  document.getElementById('mex-sub').textContent=fmtDate(ddk);
+  document.getElementById('mex-turmas').innerHTML=S.turmas.map(t=>`<div onclick="selExtraTurma('${t.id}')" id="ext-${t.id}"
+    style="display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:8px;border:1.5px solid ${t.color}30;cursor:pointer;transition:all .14s">
+    <div style="width:7px;height:7px;border-radius:2px;background:${t.color}"></div>
+    <span style="font-size:.8rem;font-weight:500;color:${t.color}">${t.nome}</span>
+    <span style="font-size:.7rem;color:var(--text-muted)">${t.disciplina}</span>
+  </div>`).join('');
+  document.getElementById('mex-periodos').innerHTML=TURNOS.map(tn=>`
+    <div style="margin-bottom:8px"><div style="font-size:.74rem;color:var(--text-muted);margin-bottom:3px">${tn.label}</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap">${[1,2,3,4,5,6].map(p=>`<button class="pp" id="xp-${tn.id}-${p}" onclick="toggleExPer('${tn.id}',${p})">${p}º</button>`).join('')}</div></div>`).join('');
+  openModal('modal-extra');
+}
+function selExtraTurma(id){exTurma=id;document.querySelectorAll('#mex-turmas>div').forEach(el=>{el.style.background='transparent';});document.getElementById('ext-'+id).style.background='rgba(255,255,255,.05)';}
+function toggleExPer(t,p){if(!exPer[t])exPer[t]=[];const arr=exPer[t],i=arr.indexOf(p);if(i>=0)arr.splice(i,1);else arr.push(p);document.getElementById(`xp-${t}-${p}`)?.classList.toggle('sel',arr.includes(p));}
+function saveExtra(){
+  if(!exTurma){alert('Selecione uma turma.');return;}
+  const turno=Object.keys(exPer).find(k=>exPer[k]?.length);
+  if(!turno){alert('Selecione ao menos um período.');return;}
+  S.extras.push({id:uid(),turmaId:exTurma,date:exDate,turno,periodos:[...exPer[turno]].sort((a,b)=>a-b)});
+  save();closeModal('modal-extra');render();
+}
+
+// ════════════════════════════════════════════════════════
+// TURMA DETAIL
+// ════════════════════════════════════════════════════════
+let detTId=null,detFilter='all';
+function openTurmaDetail(id){
+  detTId=id;detFilter='all';
+  const t=gt(id);
+  document.getElementById('td-dot').style.background=t.color;
+  document.getElementById('td-title').textContent=`${t.nome} — ${t.disciplina}`;
+  document.querySelectorAll('.fchip').forEach(c=>c.classList.remove('active'));
+  document.querySelector('#view-turma-detail .fchip').classList.add('active');
+  renderTurmaDetail();setView('turma-detail');
+}
+function setDF(f,el){detFilter=f;document.querySelectorAll('#view-turma-detail .fchip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderTurmaDetail();}
+
+function renderTurmaDetail(){
+  const allA=getAulas(FAR_PAST,FAR_FUTURE).filter(a=>a.turmaId===detTId).sort((a,b)=>a.date.localeCompare(b.date));
+  const total=allA.length,pl=allA.filter(a=>a.plano?.status==='published').length;
+  document.getElementById('td-sub').textContent=`${total} aulas · ${pl} publicadas · ${total?Math.round(pl/total*100):0}%`;
+  const trims=getTrimestres();
+  let dashHtml='';
+  if(trims.length){
+    dashHtml=`<div class="dashboard"><div class="dash-title">Progresso por Trimestre</div><div class="dash-bars">`;
+    for(const tr of trims){
+      const ta=allA.filter(a=>a.date>=tr.inicio&&a.date<=tr.fim);
+      const tp=ta.filter(a=>a.plano?.status==='published').length;
+      const pct=ta.length?Math.round(tp/ta.length*100):0;
+      const color=pct>=80?'var(--planned)':pct>=50?'var(--warn)':'var(--unplanned)';
+      dashHtml+=`<div class="dash-row">
+        <div class="dash-lbl" title="${tr.nome}">${tr.nome}</div>
+        <div class="dash-track"><div class="dash-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="dash-pct" style="color:${color}">${pct}%</div>
+      </div>`;
+    }
+    dashHtml+=`</div></div>`;
+  }
+  document.getElementById('td-dashboard').innerHTML=dashHtml;
+  let aulas=allA;
+  if(detFilter==='upcoming')aulas=aulas.filter(a=>!isPast(a.date)||isToday(a.date));
+  if(detFilter==='unplanned')aulas=aulas.filter(a=>!a.plano?.conteudo);
+  if(detFilter==='planned')aulas=aulas.filter(a=>a.plano?.conteudo);
+  const list=document.getElementById('td-list');
+  if(!aulas.length){list.innerHTML='<div class="empty"><div class="ei">📋</div><p>Nenhuma aula.</p></div>';return;}
+  list.innerHTML='<div class="aulas-list">'+aulas.map(a=>{
+    const past=isPast(a.date),pl=a.plano?.conteudo;
+    const isDraft=a.plano&&(!a.plano.status||a.plano.status==='draft');
+    const bncc=(a.plano?.bnccCodes||[a.plano?.bncc].filter(Boolean));
+    return`<div class="aula-row ${past?'past':''}" onclick="openPlano('${a.key}')">
+      <div class="ar-date">${fmtDate(a.date)}</div>
+      <div class="ar-period">${turnoLbl(a.turno,a.periodos)}</div>
+      <div class="ar-content ${pl?'':'empty'}">${isDraft?'📝 ':''} ${pl||'Clique para planejar...'}</div>
+      ${a.isException?'<div class="ar-exc">⚠ Alt.</div>':''}
+      ${a.isExtra?'<div class="ar-exc" style="color:var(--accent)">★ Extra</div>':''}
+      ${bncc.length?`<span class="bncc-code">${bncc[0]}</span>`:''}
+      <div class="ar-badge ${pl&&!isDraft?'ok':'no'}">${pl?(isDraft?'📝':'✓'):'!'}</div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+// ════════════════════════════════════════════════════════
+// BUSCA
+// ════════════════════════════════════════════════════════
+let srchField='all';
+function setSF(f,el){srchField=f;document.querySelectorAll('.sf').forEach(b=>b.classList.remove('active'));el.classList.add('active');runSearch();}
+function runSearch(){
+  const q=(document.getElementById('srch-inp')?.value||'').toLowerCase().trim();
+  const d1=document.getElementById('srch-d1')?.value||FAR_PAST;
+  const d2=document.getElementById('srch-d2')?.value||FAR_FUTURE;
+  const out=document.getElementById('srch-results');if(!out)return;
+  let aulas=getAulas(d1,d2).filter(a=>a.plano?.conteudo);
+  if(q){aulas=aulas.filter(a=>{
+    const p=a.plano,t=gt(a.turmaId);
+    if(srchField==='conteudo'||srchField==='all'){if((p.conteudo||'').toLowerCase().includes(q))return true;}
+    if(srchField==='bncc'||srchField==='all'){const codes=(p.bnccCodes||[p.bncc]).join(' ').toLowerCase();if(codes.includes(q))return true;}
+    if(srchField==='turma'||srchField==='all'){if((t?.nome||'').toLowerCase().includes(q)||(t?.disciplina||'').toLowerCase().includes(q))return true;}
+    if(srchField==='all'){if((p.dinamica||'').toLowerCase().includes(q))return true;}
+    return false;
+  });}
+  aulas.sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('srch-count').textContent=`${aulas.length} resultado${aulas.length!==1?'s':''}`;
+  if(!aulas.length){out.innerHTML='<div class="empty"><div class="ei">🔍</div><p>Nenhum resultado.</p></div>';return;}
+  out.innerHTML='<div class="aulas-list">'+aulas.map(a=>{
+    const t=gt(a.turmaId),p=a.plano;
+    const bncc=(p.bnccCodes||[p.bncc].filter(Boolean));
+    const isDraft=!p.status||p.status==='draft';
+    return`<div class="aula-row" onclick="openPlano('${a.key}')">
+      <div class="ar-date">${fmtDate(a.date)}</div>
+      <div style="display:flex;align-items:center;gap:4px;min-width:88px;flex-shrink:0"><div style="width:5px;height:5px;border-radius:2px;background:${t?.color||'#aaa'}"></div><span style="font-size:.74rem;font-weight:500">${t?.nome||'?'}</span></div>
+      <div class="ar-content">${isDraft?'📝 ':''}${p.conteudo.split('\n')[0].slice(0,60)}</div>
+      ${bncc.length?`<span class="bncc-code">${bncc[0]}</span>`:''}
+    </div>`;
+  }).join('')+'</div>';
+}
+
+// ════════════════════════════════════════════════════════
+// TRIMESTRES
+// ════════════════════════════════════════════════════════
+let editTrimId=null;
+function openTrimModal(id=null){
+  editTrimId=id;const t=id?S.trimestres[id]:null;
+  document.getElementById('mtr-title').textContent=t?'Editar Trimestre':'Novo Trimestre';
+  document.getElementById('tr-nome').value=t?.nome||'';
+  document.getElementById('tr-ini').value=t?.inicio||'';
+  document.getElementById('tr-fim').value=t?.fim||'';
+  document.getElementById('mtr-del').innerHTML=t?`<button class="btn btn-danger btn-sm" onclick="removeTrim('${id}')">🗑 Remover</button>`:'';
+  openModal('modal-trim');
+}
+function saveTrim(){
+  const nome=document.getElementById('tr-nome').value.trim(),inicio=document.getElementById('tr-ini').value,fim=document.getElementById('tr-fim').value;
+  if(!nome||!inicio||!fim){alert('Preencha todos os campos.');return;}
+  if(editTrimId)S.trimestres[editTrimId]={...S.trimestres[editTrimId],nome,inicio,fim};
+  else{const id=uid();S.trimestres[id]={id,nome,inicio,fim};}
+  save();closeModal('modal-trim');render();if(currentView==='trimestres')renderTrims();
+}
+function removeTrim(id){if(!confirm('Remover?'))return;delete S.trimestres[id];save();closeModal('modal-trim');render();if(currentView==='trimestres')renderTrims();}
+function renderTrims(){
+  const g=document.getElementById('trims-grid');
+  const trims=getTrimestres();
+  if(!trims.length){g.innerHTML='<div class="empty"><div class="ei">📅</div><p>Nenhum trimestre.</p></div>';return;}
+  g.innerHTML=trims.map(tr=>{
+    const a=getAulas(tr.inicio,tr.fim),pl=a.filter(x=>x.plano?.status==='published').length,pct=a.length?Math.round(pl/a.length*100):0;
+    const color=pct>=80?'var(--planned)':pct>=50?'var(--warn)':'var(--unplanned)';
+    return`<div class="trim-card">
+      <div class="trim-card-hd"><div class="trim-card-title">${tr.nome}</div><div class="trim-card-dates">${fmtDate(tr.inicio)} → ${fmtDate(tr.fim)}</div></div>
+      <div class="trim-card-body">
+        <div class="trim-stat"><span>Total</span><span>${a.length}</span></div>
+        <div class="trim-stat"><span>Publicadas</span><span style="color:var(--planned)">${pl}</span></div>
+        <div class="trim-stat"><span>Sem plano</span><span style="color:var(--unplanned)">${a.length-pl}</span></div>
+        <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:.71rem;color:var(--text-muted)"><span>Progresso</span><span style="color:${color};font-weight:600">${pct}%</span></div>
+        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:9px" onclick="openTrimModal('${tr.id}')">✏ Editar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════
+// RELATÓRIO + PDF — com filtro de rascunhos (MODIFICADO)
+// ════════════════════════════════════════════════════════
+function renderRelatorio(){
+  const tId=document.getElementById('rel-turma')?.value||'';
+  const trId=document.getElementById('rel-trim')?.value||'';
+  const inclDrafts=document.getElementById('rel-drafts')?.checked||false;
+  const out=document.getElementById('rel-content');if(!out)return;
+  const trim=trId?S.trimestres[trId]:null;
+  let aulas=getAulas(trim?.inicio||FAR_PAST,trim?.fim||FAR_FUTURE);
+  if(tId)aulas=aulas.filter(a=>a.turmaId===tId);
+  // Filtrar por status
+  aulas=aulas.filter(a=>{
+    if(!a.plano?.conteudo)return true;
+    const isDraft=!a.plano.status||a.plano.status==='draft';
+    if(isDraft&&!inclDrafts)return true; // mostra como não planejada
+    return true;
+  });
+  aulas.sort((a,b)=>a.date.localeCompare(b.date));
+  if(!aulas.length){out.innerHTML='<div class="empty"><div class="ei">📊</div><p>Nenhuma aula.</p></div>';return;}
+  const pl=aulas.filter(a=>a.plano?.conteudo&&(inclDrafts||a.plano?.status==='published')).length;
+  const pct=Math.round(pl/aulas.length*100);
+  out.innerHTML=`<div class="stats-row" style="margin-bottom:14px">
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent)">${aulas.length}</div><div class="stat-lbl">Total</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--planned)">${pl}</div><div class="stat-lbl">${inclDrafts?'Planejadas':'Publicadas'}</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--unplanned)">${aulas.length-pl}</div><div class="stat-lbl">Sem plano</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--warn)">${pct}%</div><div class="stat-lbl">% Planejado</div></div>
+  </div>
+  <div class="aulas-list">${aulas.map(a=>{
+    const turma=gt(a.turmaId),p=a.plano,past=isPast(a.date);
+    const bncc=(p?.bnccCodes||[p?.bncc].filter(Boolean)).join(', ');
+    const isDraft=p&&(!p.status||p.status==='draft');
+    const showContent=p?.conteudo&&(inclDrafts||p.status==='published');
+    return`<div class="aula-row ${past?'past':''}" onclick="openPlano('${a.key}')">
+      <div class="ar-date">${fmtDate(a.date)}</div>
+      <div style="display:flex;align-items:center;gap:4px;min-width:88px;flex-shrink:0"><div style="width:5px;height:5px;border-radius:2px;background:${turma?.color||'#aaa'}"></div><span style="font-size:.74rem;font-weight:500">${turma?.nome||'?'}</span></div>
+      <div class="ar-period">${turnoLbl(a.turno,a.periodos)}</div>
+      <div class="ar-content ${showContent?'':'empty'}">${isDraft&&showContent?'📝 ':''}${showContent?p.conteudo.split('\n')[0].slice(0,55):'Não planejada'}</div>
+      ${bncc&&showContent?`<span class="bncc-code">${bncc.split(',')[0].trim()}</span>`:''}
+      <div class="ar-badge ${showContent?'ok':'no'}">${showContent?(isDraft?'📝':'✓'):'!'}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function exportPDF(){
+  const tId=document.getElementById('rel-turma')?.value||'';
+  const trId=document.getElementById('rel-trim')?.value||'';
+  const inclDrafts=document.getElementById('rel-drafts')?.checked||false;
+  const turma=tId?gt(tId):null,trim=trId?S.trimestres[trId]:null;
+  let aulas=getAulas(trim?.inicio||FAR_PAST,trim?.fim||FAR_FUTURE);
+  if(tId)aulas=aulas.filter(a=>a.turmaId===tId);
+  aulas.sort((a,b)=>a.date.localeCompare(b.date));
+  const title=`Relatório — ${turma?turma.nome+' · '+turma.disciplina:'Todas as Turmas'}${trim?' · '+trim.nome:''}`;
+  const pl=aulas.filter(a=>a.plano?.conteudo&&(inclDrafts||a.plano?.status==='published')).length;
+  const rows=aulas.map(a=>{
+    const t=gt(a.turmaId),bncc=(a.plano?.bnccCodes||[a.plano?.bncc].filter(Boolean)).join(', ');
+    const isDraft=a.plano&&(!a.plano.status||a.plano.status==='draft');
+    const showContent=a.plano?.conteudo&&(inclDrafts||a.plano?.status==='published');
+    return`<tr><td>${fmtDate(a.date)}</td><td>${t?.nome||'?'} — ${t?.disciplina||''}</td><td>${turnoLbl(a.turno,a.periodos)}</td><td>${bncc||'—'}</td><td style="max-width:280px">${showContent?a.plano.conteudo:isDraft?'<em style="color:#888">(Rascunho)</em>':'<em style="color:#999">Não planejada</em>'}</td><td style="text-align:center;color:${showContent?'#1a7a40':isDraft?'#c47a06':'#b83030'}">${showContent?'✓':(isDraft?'📝':'✗')}</td></tr>`;
+  }).join('');
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+  <style>body{font-family:Arial,sans-serif;font-size:11px;padding:20px;color:#222}h1{font-size:15px;margin-bottom:3px}p{color:#666;font-size:10px;margin-bottom:14px}table{width:100%;border-collapse:collapse}th{background:#f0f0f0;padding:5px 7px;text-align:left;border-bottom:2px solid #ddd;font-size:10px}td{padding:5px 7px;border-bottom:1px solid #eee;vertical-align:top}tr:nth-child(even){background:#f9f9f9}@media print{button{display:none}}</style>
+  </head><body><h1>${title}</h1><p>Gerado em ${fmtDate(TODAY_KEY)} · ${aulas.length} aulas · ${pl} planejadas (${aulas.length?Math.round(pl/aulas.length*100):0}%)</p>
+  <table><thead><tr><th>Data</th><th>Turma</th><th>Horário</th><th>BNCC</th><th>Conteúdo</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+  w.document.close();w.focus();setTimeout(()=>w.print(),350);
+}
+
+// ════════════════════════════════════════════════════════
+// EXPORT JSON
+// ════════════════════════════════════════════════════════
+function exportData(){
+  const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='planejador_aulas_v6.json';a.click();
+}
+
+// ════════════════════════════════════════════════════════
+// GOOGLE DRIVE
+// ════════════════════════════════════════════════════════
+const DRIVE_FILE='planejador_aulas_dados.json';
+const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.file';
+let driveCid=localStorage.getItem('drive_client_id')||'';
+let driveToken=null,driveFileId=localStorage.getItem('drive_file_id')||null,driveReady=false;
+
+function setDS(state,txt){
+  const bar=document.getElementById('drive-status'),dot=document.getElementById('drive-dot'),lbl=document.getElementById('drive-label');
+  bar.className='drive-pill '+state;dot.className='drive-dot d-'+(state==='on'?'on':state==='sync'?'spin':'off');lbl.textContent=txt;
+}
+function handleDriveClick(){
+  if(!driveCid){document.getElementById('drive-cid').value=driveCid;openModal('modal-drive');return;}
+  if(!driveToken){initDrive();return;}
+  if(confirm('Drive conectado. Desconectar?')){driveToken=null;driveReady=false;setDS('off','Drive');}
+}
+function saveDriveCfg(){
+  const id=document.getElementById('drive-cid').value.trim();if(!id){alert('Cole o Client ID.');return;}
+  driveCid=id;localStorage.setItem('drive_client_id',id);closeModal('modal-drive');initDrive();
+}
+function initDrive(){
+  if(!driveCid){openModal('modal-drive');return;}setDS('sync','Conectando...');
+  try{const c=google.accounts.oauth2.initTokenClient({client_id:driveCid,scope:DRIVE_SCOPE,callback:async r=>{
+    if(r.error){setDS('err','Erro auth');return;}
+    driveToken=r.access_token;driveReady=true;setDS('sync','Verificando...');await findOrCreateFile();
+  }});c.requestAccessToken();}catch(e){setDS('err','API offline');}
+}
+async function driveReq(url,opts={}){
+  const r=await fetch(url,{...opts,headers:{'Authorization':`Bearer ${driveToken}`,...opts.headers}});
+  if(!r.ok){if(r.status===401){driveToken=null;driveReady=false;setDS('off','Drive');}throw new Error(r.status);}return r;
+}
+async function findOrCreateFile(){
+  try{
+    let fid=driveFileId;
+    if(!fid){const r=await driveReq(`https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE}'+and+trashed=false&fields=files(id)`);const d=await r.json();if(d.files?.length){fid=d.files[0].id;localStorage.setItem('drive_file_id',fid);driveFileId=fid;}}
+    if(fid){const local=JSON.parse(localStorage.getItem('planner_v4')||'{}');if(local.turmas?.length){openModal('modal-drive-import');setDS('on','● Conectado');}else await loadFromDrive();}
+    else{await saveDataToDrive(true);setDS('on','● Conectado');}
+  }catch(e){setDS('err','Erro Drive');}
+}
+async function saveDataToDrive(creating=false){
+  setDS('sync','Salvando...');
+  try{
+    const content=JSON.stringify(S);
+    if(creating||!driveFileId){
+      const form=new FormData();
+      form.append('metadata',new Blob([JSON.stringify({name:DRIVE_FILE,mimeType:'application/json'})],{type:'application/json'}));
+      form.append('file',new Blob([content],{type:'application/json'}));
+      const r=await driveReq('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',body:form});
+      const d=await r.json();driveFileId=d.id;localStorage.setItem('drive_file_id',driveFileId);
+    }else{await driveReq(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:content});}
+    setDS('on','● Conectado');
+    // Marca todos como sincronizados
+    Object.values(S.planos).forEach(p=>{delete p.unsynced;});
+    localStorage.setItem('planner_v4',JSON.stringify(S));
+    updateSyncBar();updateFAB();
+  }catch(e){setDS('err','Erro ao salvar');}
+}
+async function loadFromDrive(){
+  setDS('sync','Carregando...');
+  try{const r=await driveReq(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`);const d=await r.json();S={...S,...d};if(Array.isArray(S.trimestres)){const a=S.trimestres;S.trimestres={};a.forEach(t=>S.trimestres[t.id]=t);}localStorage.setItem('planner_v4',JSON.stringify(S));rebuildIdx();render();setDS('on','● Conectado');}
+  catch(e){setDS('err','Erro ao carregar');}
+}
+async function importFromDrive(){closeModal('modal-drive-import');await loadFromDrive();}
+async function keepLocal(){closeModal('modal-drive-import');await saveDataToDrive();}
+window.addEventListener('load',()=>{if(driveCid)setTimeout(()=>{if(typeof google!=='undefined')initDrive();else setDS('err','API offline');},1500);});
+
+// ════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+// REGISTRO PEDAGÓGICO — Template local (sem API)
+// ════════════════════════════════════════════════════════
+let _registroText='';
+
+function gerarRegistro(){
+  if(!curKey)return;
+  const{turmaId,date,turno}=parseKey(curKey);
+  const turma=gt(turmaId);
+  const p=S.planos[curKey]||{};
+
+  // Lê do form se em edição, senão do plano salvo
+  const bnccCodes=getBnccCodes().length?getBnccCodes():(p.bnccCodes||[p.bncc].filter(Boolean));
+  const objetivo=document.getElementById('fp-obj')?.value||p.objetivo||'';
+  const conteudo=document.getElementById('fp-cont')?.value||p.conteudo||'';
+  const dinamica=document.getElementById('fp-din')?.value||p.dinamica||'';
+  const material=document.getElementById('fp-mat')?.value||p.material||p.material||'';
+  const avaliacao=document.getElementById('fp-aval')?.value||p.avaliacao||'';
+  const obs=document.getElementById('fp-obs')?.value||p.obs||'';
+
+  if(!conteudo){
+    alert('Preencha ao menos o campo "Conteúdo" antes de gerar o registro.');
+    return;
+  }
+
+  const turnoLabel={manha:'Manhã',tarde:'Tarde',noite:'Noite'}[turno]||turno;
+  const linhas=[];
+
+  // Cabeçalho
+  linhas.push(`${turma?.nome||turmaId} — ${turma?.disciplina||''}`);
+  linhas.push(`${fmtDate(date)} · ${turnoLabel}`);
+  linhas.push('');
+
+  // Habilidades BNCC
+  if(bnccCodes.length){
+    linhas.push('Habilidades BNCC:');
+    bnccCodes.forEach(c=>linhas.push(`  - ${c}`));
+  }else{
+    linhas.push('Habilidades BNCC: —');
+  }
+
+  // Objetivo
+  linhas.push('');
+  if(objetivo){
+    linhas.push('Objetivo:');
+    // Suporta múltiplos objetivos separados por linha
+    objetivo.trim().split(/\n+/).forEach(l=>{
+      const t=l.trim();if(t)linhas.push(`  - ${t}`);
+    });
+  }else{
+    linhas.push('Objetivo: —');
+  }
+
+  // Conteúdos
+  linhas.push('');
+  linhas.push('Conteúdos:');
+  conteudo.trim().split(/\n+/).forEach(l=>{
+    const t=l.trim();if(t)linhas.push(`  - ${t}`);
+  });
+
+  // Metodologia
+  linhas.push('');
+  if(dinamica){
+    linhas.push('Metodologia:');
+    dinamica.trim().split(/\n+/).forEach(l=>{
+      const t=l.trim();if(t)linhas.push(`  - ${t}`);
+    });
+  }else{
+    linhas.push('Metodologia: —');
+  }
+
+  // Material
+  linhas.push('');
+  if(material&&material.trim()){
+    linhas.push('Material Utilizado:');
+    material.trim().split(/\n+/).forEach(l=>{const t=l.trim();if(t)linhas.push(`  - ${t}`);});
+  }
+
+  // Avaliação
+  linhas.push('');
+  if(avaliacao){
+    linhas.push('Avaliação:');
+    avaliacao.trim().split(/\n+/).forEach(l=>{
+      const t=l.trim();if(t)linhas.push(`  - ${t}`);
+    });
+  }else{
+    linhas.push('Avaliação: —');
+  }
+
+  // Observações (só se preenchido)
+  if(obs&&obs.trim()){
+    linhas.push('');
+    linhas.push('Observações:');
+    obs.trim().split(/\n+/).forEach(l=>{
+      const t=l.trim();if(t)linhas.push(`  - ${t}`);
+    });
+  }
+
+  _registroText=linhas.join('\n');
+  document.getElementById('reg-sub').textContent=`${turma?.nome||turmaId} · ${fmtDate(date)} · ${turnoLabel}`;
+  document.getElementById('reg-loading').style.display='none';
+  document.getElementById('reg-output').textContent=_registroText;
+  openModal('modal-registro');
+}
+
+function copyRegistro(){
+  navigator.clipboard.writeText(_registroText).then(()=>{
+    const btn=event.target;btn.textContent='✓ Copiado!';setTimeout(()=>btn.textContent='📋 Copiar',2000);
+  });
+}
+function downloadRegistro(){
+  const[turmaId,date]=curKey?.split('|')||['turma','data'];
+  const fname=`registro_${turmaId}_${date}.txt`;
+  const b=new Blob([_registroText],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fname;a.click();
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER GLOBAL
+// ════════════════════════════════════════════════════════
+function render(){
+  renderSidebar();
+  if(currentView==='calendar')renderCalendar();
+  else if(currentView==='semana')renderWeek();
+  else if(currentView==='trimestres')renderTrims();
+  else if(currentView==='relatorio')renderRelatorio();
+  else if(currentView==='busca')runSearch();
+  else if(currentView==='turma-detail')renderTurmaDetail();
+}
+
+
+// ════════════════════════════════════════════════════════
+// BANCO DE AULAS
+// ════════════════════════════════════════════════════════
+let _bancoCurId = null;   // ID da aula sendo editada/exportada
+let _exportData = null;   // dados do plano a exportar
+
+// Render lista do banco com filtros
+function renderBanco(){
+  if(!S.banco)S.banco=[];
+  const q=(document.getElementById('banco-q')?.value||'').toLowerCase().trim();
+  const ano=(document.getElementById('banco-ano')?.value||'').trim();
+  const bncc=(document.getElementById('banco-bncc')?.value||'').toLowerCase().trim();
+  const obj=(document.getElementById('banco-obj')?.value||'').toLowerCase().trim();
+  let lista=[...S.banco];
+  if(q) lista=lista.filter(a=>(a.conteudo||'').toLowerCase().includes(q)||(a.titulo||'').toLowerCase().includes(q)||(a.dinamica||'').toLowerCase().includes(q));
+  if(ano) lista=lista.filter(a=>(a.ano||'').toString()===ano);
+  if(bncc) lista=lista.filter(a=>(a.bnccCodes||[]).join(' ').toLowerCase().includes(bncc)||(a.bncc||'').toLowerCase().includes(bncc));
+  if(obj) lista=lista.filter(a=>(a.objetivo||'').toLowerCase().includes(obj));
+  lista.sort((a,b)=>(b.criadoEm||'').localeCompare(a.criadoEm||''));
+  const countEl=document.getElementById('banco-count');
+  if(countEl) countEl.textContent=`${lista.length} aula${lista.length!==1?'s':''} no banco`;
+  const out=document.getElementById('banco-list');
+  if(!out) return;
+  if(!lista.length){
+    out.innerHTML='<div class="empty"><div class="ei">📖</div><p>Nenhuma aula no banco.<br><small>Crie uma aula avulsa ou exporte do planejamento.</small></p></div>';
+    return;
+  }
+  out.innerHTML='<div class="aulas-list">'+lista.map(a=>{
+    const codes=(a.bnccCodes||[a.bncc].filter(Boolean));
+    return`<div class="aula-row" style="flex-direction:column;align-items:flex-start;gap:6px;padding:10px 12px">
+      <div style="display:flex;width:100%;align-items:center;gap:8px">
+        <div style="font-weight:600;font-size:.85rem;flex:1">${a.titulo||a.conteudo?.split('\n')[0]?.slice(0,50)||'Sem título'}</div>
+        <div style="font-size:.68rem;color:var(--text-muted);white-space:nowrap">${a.ano||''} ${a.disciplina?'· '+a.disciplina:''}</div>
+        ${a.avaliativa?'<span class="avaliativa-badge" style="font-size:.65rem;padding:2px 6px">★</span>':''}
+      </div>
+      ${codes.length?`<div style="display:flex;gap:4px;flex-wrap:wrap">${codes.map(x=>`<span class="bncc-code">${x}</span>`).join('')}</div>`:''}
+      ${a.objetivo?`<div style="font-size:.75rem;color:var(--text-muted)">${a.objetivo.split('\n')[0].slice(0,80)}</div>`:''}
+      <div style="display:flex;gap:6px;margin-top:2px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="openBancoModal('${a.id}')">✏ Editar</button>
+        <button class="btn btn-ghost btn-sm" onclick="openUsarBanco('${a.id}')">📌 Usar no planejamento</button>
+        <button class="btn btn-warn btn-sm" onclick="openExportModal('${a.id}','banco')">⬇ Exportar</button>
+        <button class="btn btn-danger btn-sm" onclick="removeBancoAula('${a.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+// Abre modal de criação/edição de aula do banco
+function openBancoModal(id=null){
+  _bancoCurId=id;
+  const a=id?(S.banco||[]).find(x=>x.id===id):null;
+  document.getElementById('mb-title').textContent=a?'Editar Aula':'Nova Aula — Banco';
+  document.getElementById('mb-sub').textContent=a?(a.titulo||'Aula avulsa'):'Aula avulsa para o banco';
+  const codes=a?.bnccCodes||(a?.bncc?[a.bncc]:[]);
+  document.getElementById('mb-body').innerHTML=`
+    <div class="fg"><label class="fl">Título da Aula</label><input class="fc" id="ba-titulo" placeholder="Nome para identificar no banco" value="${a?.titulo||''}"></div>
+    <div class="fr">
+      <div class="fg"><label class="fl">Disciplina</label><input class="fc" id="ba-disc" placeholder="Português" value="${a?.disciplina||''}"></div>
+      <div class="fg"><label class="fl">Ano Escolar</label>
+          <select class="fc" id="ba-ano">
+            <option value="">— Selecione —</option>
+            <option ${a?.ano==='1º ano'?'selected':''}>1º ano</option>
+            <option ${a?.ano==='2º ano'?'selected':''}>2º ano</option>
+            <option ${a?.ano==='3º ano'?'selected':''}>3º ano</option>
+            <option ${a?.ano==='4º ano'?'selected':''}>4º ano</option>
+            <option ${a?.ano==='5º ano'?'selected':''}>5º ano</option>
+            <option ${a?.ano==='6º ano'?'selected':''}>6º ano</option>
+            <option ${a?.ano==='7º ano'?'selected':''}>7º ano</option>
+            <option ${a?.ano==='8º ano'?'selected':''}>8º ano</option>
+            <option ${a?.ano==='9º ano'?'selected':''}>9º ano</option>
+            <option ${a?.ano==='1º EM'?'selected':''}>1º EM</option>
+            <option ${a?.ano==='2º EM'?'selected':''}>2º EM</option>
+            <option ${a?.ano==='3º EM'?'selected':''}>3º EM</option>
+          </select></div>
+    </div>
+    <div class="fg"><label class="fl">Habilidades BNCC <span style="font-weight:400;color:var(--text-dim);font-size:.68rem">(Enter para adicionar)</span></label>
+      <div class="bncc-wrap" id="ba-bncc-wrap" onclick="document.getElementById('ba-bncc-inp').focus()">
+        ${codes.map(x=>`<span class="bncc-tag">${x}<button class="bncc-del" onclick="this.parentElement.remove()">×</button></span>`).join('')}
+        <input class="bncc-inp" id="ba-bncc-inp" placeholder="${codes.length?'':'EM13LP01'}" onkeydown="handleBancoKey(event)">
+      </div>
+      <textarea class="fc" id="ba-bdesc" rows="2" placeholder="Descrição das habilidades..." style="margin-top:5px">${a?.bnccDesc||''}</textarea>
+    </div>
+    <div class="fg"><label class="fl">Objetivo da Aula</label><textarea class="fc" id="ba-obj" rows="2" placeholder="O que os alunos devem aprender/alcançar?">${a?.objetivo||''}</textarea></div>
+    <div class="fg"><label class="fl">Conteúdo <span class="req">*</span></label><textarea class="fc" id="ba-cont" rows="3" placeholder="O que será trabalhado?">${a?.conteudo||''}</textarea></div>
+    <div class="fg"><label class="fl">Dinâmica / Metodologia</label><textarea class="fc" id="ba-din" rows="6" placeholder="Como a aula será conduzida?">${a?.dinamica||''}</textarea></div>
+    <div class="fg"><label class="fl">Material Utilizado</label><textarea class="fc" id="ba-mat" rows="6" placeholder="Materiais, recursos, links, anexos...">${a?.material||''}</textarea></div>
+    <div class="fg"><label class="fl">Avaliação / Instrumentos</label><textarea class="fc" id="ba-aval" rows="2" placeholder="Como os alunos serão avaliados?">${a?.avaliacao||''}</textarea></div>
+    <div class="fg"><label class="fl">Observações</label><textarea class="fc" id="ba-obs" rows="2">${a?.obs||''}</textarea></div>
+    <div class="avaliativa-toggle ${a?.avaliativa?'on':''}" id="ba-av-toggle" onclick="toggleBaAvaliativa()">
+      <span class="av-icon">★</span>
+      <div><div style="font-size:.78rem;font-weight:600">Aula Avaliativa</div><div style="font-size:.68rem;opacity:.75">Instrumento formal com nota</div></div>
+      <div class="av-check">${a?.avaliativa?'✓':''}</div>
+    </div>`;
+  document.getElementById('mb-ft').innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal('modal-banco')">Cancelar</button>
+    ${id?`<button class="btn btn-danger btn-sm" onclick="removeBancoAula('${id}')">🗑 Remover</button>`:''}
+    <button class="btn btn-primary" onclick="saveBancoAula()">💾 Salvar no Banco</button>`;
+  openModal('modal-banco');
+}
+
+function handleBancoKey(e){
+  if(e.key==='Enter'||e.key===','){e.preventDefault();const v=e.target.value.trim().replace(',','');if(v){
+    const wrap=document.getElementById('ba-bncc-wrap'),inp=document.getElementById('ba-bncc-inp');
+    const tag=document.createElement('span');tag.className='bncc-tag';tag.innerHTML=`${v}<button class="bncc-del" onclick="this.parentElement.remove()">×</button>`;wrap.insertBefore(tag,inp);
+    e.target.value='';
+  }}
+}
+function toggleBaAvaliativa(){
+  const el=document.getElementById('ba-av-toggle');if(!el)return;
+  const on=el.classList.toggle('on');el.querySelector('.av-check').textContent=on?'✓':'';
+}
+
+function getBancoCodes(){
+  return[...document.querySelectorAll('#ba-bncc-wrap .bncc-tag')].map(el=>el.textContent.replace('×','').trim()).filter(Boolean);
+}
+
+function saveBancoAula(){
+  const conteudo=document.getElementById('ba-cont')?.value.trim();
+  if(!conteudo){alert('Informe o conteúdo da aula.');return;}
+  if(!S.banco)S.banco=[];
+  const codes=getBancoCodes();
+  const existing=_bancoCurId?(S.banco.find(x=>x.id===_bancoCurId)||{}):null;
+  const aula={
+    id:existing?.id||uid(),
+    titulo:document.getElementById('ba-titulo').value.trim(),
+    disciplina:document.getElementById('ba-disc').value.trim(),
+    ano:document.getElementById('ba-ano').value.trim(),
+    bnccCodes:codes,bncc:codes[0]||'',
+    bnccDesc:document.getElementById('ba-bdesc').value.trim(),
+    objetivo:document.getElementById('ba-obj').value.trim(),
+    conteudo,
+    dinamica:document.getElementById('ba-din').value.trim(),
+    material:document.getElementById('ba-mat').value.trim(),
+    avaliacao:document.getElementById('ba-aval').value.trim(),
+    obs:document.getElementById('ba-obs').value.trim(),
+    avaliativa:document.getElementById('ba-av-toggle')?.classList.contains('on')||false,
+    criadoEm:existing?.criadoEm||new Date().toISOString(),
+    atualizadoEm:new Date().toISOString()
+  };
+  if(_bancoCurId){const idx=S.banco.findIndex(x=>x.id===_bancoCurId);if(idx>=0)S.banco[idx]=aula;}
+  else S.banco.push(aula);
+  save();closeModal('modal-banco');renderBanco();
+}
+
+function removeBancoAula(id){
+  if(!confirm('Remover esta aula do banco?'))return;
+  S.banco=(S.banco||[]).filter(x=>x.id!==id);
+  save();closeModal('modal-banco');renderBanco();
+}
+
+// ── Usar banco no planejamento ────────────────────────────
+let _usarBancoId=null;
+function openUsarBanco(id){
+  _usarBancoId=id;
+  const sel=document.getElementById('ub-turma');
+  sel.innerHTML='<option value="">Selecione...</option>'+S.turmas.map(t=>`<option value="${t.id}">${t.nome} — ${t.disciplina}</option>`).join('');
+  document.getElementById('ub-data').value='';
+  document.getElementById('ub-turno').innerHTML=TURNOS.map(tn=>`<label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer"><input type="radio" name="ub-turno-r" value="${tn.id}"> ${tn.label}</label>`).join('');
+  openModal('modal-usar-banco');
+}
+function confirmarUsarBanco(){
+  const turmaId=document.getElementById('ub-turma').value;
+  const data=document.getElementById('ub-data').value;
+  const turnoEl=document.querySelector('input[name="ub-turno-r"]:checked');
+  if(!turmaId||!data||!turnoEl){alert('Preencha turma, data e turno.');return;}
+  const turno=turnoEl.value;
+  const aula=(S.banco||[]).find(x=>x.id===_usarBancoId);
+  if(!aula)return;
+  const key=aulaKey(turmaId,data,turno);
+  const existing=S.planos[key]||{};
+  // Copia campos da aula do banco para o plano
+  S.planos[key]={
+    ...existing,
+    id:existing.id||uid(),
+    bnccCodes:aula.bnccCodes,bncc:aula.bncc,bnccDesc:aula.bnccDesc,
+    objetivo:aula.objetivo,conteudo:aula.conteudo,
+    dinamica:aula.dinamica,material:aula.material,
+    avaliacao:aula.avaliacao,obs:aula.obs,avaliativa:aula.avaliativa,
+    status:'draft',unsynced:true,
+    updatedAt:new Date().toISOString(),
+    bancoRef:aula.id
+  };
+  save();closeModal('modal-usar-banco');
+  alert(`✓ Aula aplicada ao planejamento de ${S.turmas.find(t=>t.id===turmaId)?.nome||turmaId} em ${fmtDate(data)}.`);
+  render();
+}
+
+// ── Exportar aula ─────────────────────────────────────────
+function buildAulaData(id, source){
+  if(source==='banco') return (S.banco||[]).find(x=>x.id===id)||null;
+  // source='plano': id é o curKey
+  const p=S.planos[id];if(!p)return null;
+  const{turmaId,date,turno}=parseKey(id);
+  const turma=gt(turmaId);
+  return{...p, _turma:turma?.nome||turmaId, _disciplina:turma?.disciplina||p.disciplina||'', _data:fmtDate(date), _turno:turno};
+}
+
+let _exportSource=null;
+function openExportModal(id, source){
+  _bancoCurId=id;_exportSource=source;
+  const a=buildAulaData(id,source);
+  if(!a)return;
+  const subLabel=source==='banco'?(a.titulo||a.conteudo?.slice(0,40)||'Aula'):`${a._turma||''} · ${a._data||''}`;
+  document.getElementById('mex-export-sub').textContent=subLabel;
+  // Pré-preencher campos de identificação
+  document.getElementById('exp-turma').value=a._turma||a.titulo||'';
+  document.getElementById('exp-disc').value=a._disciplina||a.disciplina||'';
+  // Ano escolar: para aula do banco usa a.ano, para plano tenta match no turma
+  const anoVal=a.ano||'';
+  const anoSel=document.getElementById('exp-ano');
+  // Tenta selecionar opção que contenha o valor
+  let matched=false;
+  for(const opt of anoSel.options){if(opt.value&&anoVal&&opt.value.toLowerCase().includes(anoVal.toLowerCase())){anoSel.value=opt.value;matched=true;break;}}
+  if(!matched)anoSel.value='';
+  document.getElementById('exp-data').value=a._data||'';
+  document.getElementById('exp-drive-section').style.display='block';
+  document.getElementById('exp-drive-status').textContent=driveReady?'':'⚠ Conecte o Google Drive (botão Drive no topo) para usar esta opção.';
+  document.getElementById('exp-drive-status').style.color=driveReady?'var(--text-muted)':'var(--warn)';
+  document.getElementById('exp-folder').value=localStorage.getItem('exp_folder')||'Banco de Aulas';
+  openModal('modal-export');
+}
+
+function buildAulaText(a,source){
+  const lines=[];
+  // Usa campos do modal de exportação se disponíveis (permitem edição antes de exportar)
+  const titulo=(document.getElementById('exp-turma')?.value||a.titulo||a._turma||'Plano de Aula');
+  const disc=(document.getElementById('exp-disc')?.value||a.disciplina||a._disciplina||'');
+  const anoEscolar=(document.getElementById('exp-ano')?.value||a.ano||'');
+  const dataExp=(document.getElementById('exp-data')?.value||a._data||'');
+  const data=dataExp?`Data: ${dataExp}${a._turno?' · Turno: '+a._turno:''}`:'';
+  const ano=anoEscolar?`Ano Escolar: ${anoEscolar}`:'';
+  lines.push(titulo);
+  if(disc)lines.push(disc);
+  if(data)lines.push(data);
+  if(ano)lines.push(ano);
+  lines.push('');
+  function addSec(label,val){
+    if(!val||!val.trim())return;
+    lines.push(label+':');
+    val.trim().split('\n').forEach(l=>{const t=l.trim();if(t)lines.push('  - '+t);});
+    lines.push('');
+  }
+  if(a.bnccCodes&&a.bnccCodes.length){
+    lines.push('Habilidades BNCC:');
+    a.bnccCodes.forEach(x=>lines.push('  - '+x));
+    if(a.bnccDesc)lines.push('  ('+a.bnccDesc+')');
+    lines.push('');
+  }
+  addSec('Objetivo',a.objetivo);
+  addSec('Conteúdo',a.conteudo);
+  addSec('Metodologia',a.dinamica);
+  addSec('Material Utilizado',a.material);
+  addSec('Avaliação',a.avaliacao);
+  addSec('Observações',a.obs);
+  return lines.join('\n');
+}
+
+// PDF via janela de impressão estilizada
+function exportAulaPDF(){
+  const a=buildAulaData(_bancoCurId,_exportSource);if(!a)return;
+  const titulo=a.titulo||a._turma||'Plano de Aula';
+  const subtitle=[a.disciplina||a._disciplina||'',a.ano?String(a.ano):'',(a._data||'')+(a._turno?' · '+a._turno:'')].filter(Boolean).join(' · ');
+  function sec(lbl,val){
+    if(!val||!val.trim())return'';
+    const items=val.trim().split('\n').filter(l=>l.trim()).map(l=>'<div class=\"item\">- '+l.trim()+'</div>').join('');
+    return'<div class=\"sec\"><div class=\"sec-lbl\">'+lbl+'</div>'+items+'</div>';
+  }
+  const bnccHtml=a.bnccCodes&&a.bnccCodes.length
+    ?'<div class=\"sec\"><div class=\"sec-lbl\">Habilidades BNCC</div>'+a.bnccCodes.map(x=>'<span class=\"badge\">'+x+'</span>').join(' ')+(a.bnccDesc?'<br><small>'+a.bnccDesc+'</small>':'')+'</div>'
+    :'';
+  const html='<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>'+titulo+'</title>'
+    +'<style>body{font-family:Arial,sans-serif;font-size:13px;line-height:1.6;margin:36px 48px;color:#1a1a1a}'
+    +'h1{font-size:18px;margin:0 0 4px}p.sub{font-size:12px;color:#555;margin:0 0 18px}'
+    +'.sec{margin-bottom:14px}.sec-lbl{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#333;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:5px}'
+    +'.item{margin:2px 0 2px 12px;font-size:13px}.badge{background:#e8f0ff;color:#2a4eaa;border-radius:4px;padding:1px 7px;font-size:11px;margin:1px 2px}'
+    +'@media print{body{margin:20px 30px}}</style></head><body>'
+    +'<h1>'+titulo+'</h1><p class=\"sub\">'+subtitle+'</p>'
+    +bnccHtml
+    +sec('Objetivo',a.objetivo)
+    +sec('Conteúdo',a.conteudo)
+    +sec('Metodologia',a.dinamica)
+    +sec('Material Utilizado',a.material)
+    +sec('Avaliação',a.avaliacao)
+    +sec('Observações',a.obs)
+    +'<scr'+'ipt>window.onload=function(){window.print();}<'+'/scr'+'ipt>'
+    +'</body></html>';
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();}
+}
+
+// DOCX via HTML-in-Word (compatível com Word, Google Docs, LibreOffice)
+function exportAulaDocx(){
+  const a=buildAulaData(_bancoCurId,_exportSource);if(!a)return;
+  const titulo=(document.getElementById('exp-turma')?.value||a.titulo||a._turma||'Plano de Aula');
+  const disc2=(document.getElementById('exp-disc')?.value||a.disciplina||a._disciplina||'');
+  const anoEsc=(document.getElementById('exp-ano')?.value||a.ano||'');
+  const dataE=(document.getElementById('exp-data')?.value||a._data||'');
+  const subtitle=[disc2,anoEsc,dataE+(a._turno?' · '+a._turno:'')].filter(Boolean).join(' · ');
+  function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function sec(lbl,val){
+    if(!val||!val.trim())return'';
+    const items=val.trim().split('\n').filter(l=>l.trim()).map(l=>'<li>'+esc(l.trim())+'</li>').join('');
+    return'<h2 style="font-size:11pt;text-transform:uppercase;letter-spacing:1px;color:#333;border-bottom:1pt solid #ccc;padding-bottom:2pt;margin-top:14pt">'+lbl+'</h2><ul>'+items+'</ul>';
+  }
+  const bnccHtml=a.bnccCodes&&a.bnccCodes.length
+    ?'<h2 style="font-size:11pt;text-transform:uppercase;letter-spacing:1px;color:#333;border-bottom:1pt solid #ccc;padding-bottom:2pt;margin-top:14pt">Habilidades BNCC</h2><p>'+a.bnccCodes.map(x=>'<span style="background:#e8f0ff;color:#2a4eaa;border-radius:3px;padding:1px 6px;font-size:10pt">'+esc(x)+'</span>').join(' ')+(a.bnccDesc?'<br><span style="font-size:10pt;color:#555">'+esc(a.bnccDesc)+'</span>':'')+'</p>'
+    :'';
+  const html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+    +'<head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:12pt;margin:2cm}h1{font-size:16pt;color:#1a1a1a}p.sub{font-size:10pt;color:#555;margin-top:-4pt;margin-bottom:16pt}ul{margin:4pt 0 4pt 18pt}li{margin:2pt 0}</style></head>'
+    +'<body><h1>'+esc(titulo)+'</h1><p class="sub">'+esc(subtitle)+'</p>'
+    +bnccHtml
+    +sec('Objetivo',a.objetivo)
+    +sec('Conteúdo',a.conteudo)
+    +sec('Metodologia',a.dinamica)
+    +sec('Material Utilizado',a.material)
+    +sec('Avaliação',a.avaliacao)
+    +sec('Observações',a.obs)
+    +'</body></html>';
+  const blob=new Blob(['\ufeff'+html],{type:'application/msword'});
+  const link=document.createElement('a');
+  link.href=URL.createObjectURL(blob);
+  link.download=titulo.replace(/[^\w\s\-\.]/g,'_').replace(/\s+/g,'_')+'.doc';
+  link.click();
+}
+
+// Upload para pasta no Drive
+async function exportAulaToDrive(){
+  if(!driveReady){alert('Conecte o Google Drive primeiro.');return;}
+  const a=buildAulaData(_bancoCurId,_exportSource);if(!a)return;
+  const folderName=(document.getElementById('exp-folder')?.value.trim()||'Banco de Aulas');
+  localStorage.setItem('exp_folder',folderName);
+  const statusEl=document.getElementById('exp-drive-status');
+  statusEl.textContent='Buscando pasta...';statusEl.style.color='var(--accent)';
+  try{
+    let folderId=null;
+    const fq="mimeType='application/vnd.google-apps.folder' and name='"+folderName+"' and trashed=false";
+    const fr=await driveReq('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(fq)+'&fields=files(id,name)');
+    const fd=await fr.json();
+    if(fd.files&&fd.files.length){folderId=fd.files[0].id;}
+    else{
+      statusEl.textContent='Criando pasta...';
+      const cr=await driveReq('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:folderName,mimeType:'application/vnd.google-apps.folder'})});
+      const cd=await cr.json();folderId=cd.id;
+    }
+    const titulo=a.titulo||a._turma||'Plano de Aula';
+    const subtitle=[a.disciplina||a._disciplina||'',a.ano?String(a.ano):'',(a._data||'')+(a._turno?' · '+a._turno:'')].filter(Boolean).join(' · ');
+    function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    function sec(lbl,val){
+      if(!val||!val.trim())return'';
+      const items=val.trim().split('\n').filter(l=>l.trim()).map(l=>'<li>'+esc(l.trim())+'</li>').join('');
+      return'<h2>'+lbl+'</h2><ul>'+items+'</ul>';
+    }
+    const html='<html><head><meta charset="UTF-8"></head><body><h1>'+esc(titulo)+'</h1><p>'+esc(subtitle)+'</p>'
+      +(a.bnccCodes&&a.bnccCodes.length?'<h2>BNCC</h2><p>'+a.bnccCodes.map(x=>esc(x)).join(', ')+'</p>':'')
+      +sec('Objetivo',a.objetivo)+sec('Conteúdo',a.conteudo)+sec('Metodologia',a.dinamica)
+      +sec('Material Utilizado',a.material)+sec('Avaliação',a.avaliacao)+sec('Observações',a.obs)
+      +'</body></html>';
+    const filename=titulo.replace(/[^\w\s\-\.]/g,'_').replace(/\s+/g,'_')+'.doc';
+    statusEl.textContent='Enviando arquivo...';
+    const form=new FormData();
+    form.append('metadata',new Blob([JSON.stringify({name:filename,parents:[folderId],mimeType:'application/vnd.google-apps.document'})],{type:'application/json'}));
+    form.append('file',new Blob([html],{type:'text/html'}));
+    await driveReq('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',body:form});
+    statusEl.textContent='✓ Salvo na pasta "'+folderName+'" no Drive!';statusEl.style.color='var(--planned)';
+  }catch(e){statusEl.textContent='Erro: '+e.message;statusEl.style.color='var(--unplanned)';}
+}
+
+// Exportar do plano de aula (botão no modal-plano)
+function openExportPlano(){openExportModal(curKey,'plano');}
+
+
+// Init
+updateSyncBar();
+updateFAB();
+render();
+</script>
+
+<!-- MODAL BANCO DE AULAS -->
+<div class="overlay" id="modal-banco">
+  <div class="modal wide">
+    <div class="modal-hd">
+      <div><div class="modal-title" id="mb-title">Nova Aula — Banco</div><div class="modal-sub" id="mb-sub">Aula avulsa para o banco de aulas</div></div>
+      <button class="modal-x" onclick="closeModal('modal-banco')">✕</button>
+    </div>
+    <div class="modal-body" id="mb-body"></div>
+    <div class="modal-ft" id="mb-ft"></div>
+  </div>
+</div>
+
+<!-- MODAL EXPORTAR AULA -->
+<div class="overlay" id="modal-export">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-hd">
+      <div><div class="modal-title">⬇ Exportar Aula</div><div class="modal-sub" id="mex-export-sub"></div></div>
+      <button class="modal-x" onclick="closeModal('modal-export')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Campos de identificação (pré-preenchidos do planejamento) -->
+      <div class="fr" style="margin-bottom:4px">
+        <div class="fg"><label class="fl">Turma / Identificação</label><input class="fc" id="exp-turma" placeholder="Ex: CN - 202" style="padding:5px 8px"></div>
+        <div class="fg"><label class="fl">Disciplina</label><input class="fc" id="exp-disc" placeholder="Ex: Português" style="padding:5px 8px"></div>
+      </div>
+      <div class="fr" style="margin-bottom:10px">
+        <div class="fg"><label class="fl">Ano Escolar</label>
+          <select class="fc" id="exp-ano" style="padding:5px 8px">
+            <option value="">— Selecione —</option>
+            <option>1º ano</option><option>2º ano</option><option>3º ano</option>
+            <option>4º ano</option><option>5º ano</option><option>6º ano</option>
+            <option>7º ano</option><option>8º ano</option><option>9º ano</option>
+            <option>1º EM</option><option>2º EM</option><option>3º EM</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Data</label><input class="fc" id="exp-data" placeholder="Ex: 04/03/2026" style="padding:5px 8px"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-ghost" onclick="exportAulaPDF()" style="justify-content:center;gap:8px">📄 Exportar como PDF</button>
+        <button class="btn btn-ghost" onclick="exportAulaDocx()" style="justify-content:center;gap:8px">📝 Exportar como DOCX (Word)</button>
+        <div id="exp-drive-section" style="display:none;margin-top:4px">
+          <div style="font-size:.74rem;color:var(--text-muted);margin-bottom:6px">Salvar no Google Drive:</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input class="fc" id="exp-folder" placeholder="Nome da pasta (ex: Banco de Aulas)" style="flex:1;padding:5px 8px">
+            <button class="btn btn-primary btn-sm" onclick="exportAulaToDrive()">↑ Drive</button>
+          </div>
+          <div id="exp-drive-status" style="font-size:.72rem;margin-top:5px;color:var(--text-muted)"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-ft"><button class="btn btn-ghost" onclick="closeModal('modal-export')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- MODAL USAR NO PLANEJAMENTO -->
+<div class="overlay" id="modal-usar-banco">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-hd">
+      <div><div class="modal-title">📌 Usar no Planejamento</div><div class="modal-sub">Escolha turma e data</div></div>
+      <button class="modal-x" onclick="closeModal('modal-usar-banco')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="fg"><label class="fl">Turma</label>
+        <select class="fc" id="ub-turma"><option value="">Selecione...</option></select>
+      </div>
+      <div class="fg"><label class="fl">Data</label>
+        <input class="fc" type="date" id="ub-data">
+      </div>
+      <div class="fg"><label class="fl">Turno</label>
+        <div id="ub-turno" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost" onclick="closeModal('modal-usar-banco')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarUsarBanco()">✅ Aplicar ao Planejamento</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ── PWA Service Worker ────────────────────────────────────
+if('serviceWorker' in navigator){
+  // Inline service worker via blob URL
+  const swCode=`
+const CACHE='planejador-v7';
+const ASSETS=[self.registration.scope+'planejador-aulas.html'];
+self.addEventListener('install',e=>{
+  e.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
+});
+self.addEventListener('activate',e=>{
+  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
+});
+self.addEventListener('fetch',e=>{
+  if(e.request.method!=='GET')return;
+  e.respondWith(
+    fetch(e.request).then(r=>{
+      const rc=r.clone();
+      caches.open(CACHE).then(cache=>cache.put(e.request,rc));
+      return r;
+    }).catch(()=>caches.match(e.request))
+  );
+});
+`;
+  const blob=new Blob([swCode],{type:'application/javascript'});
+  const swUrl=URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl).catch(()=>{});
+}
+</script>
+</body>
+</html>
